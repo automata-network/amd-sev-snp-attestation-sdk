@@ -1,4 +1,4 @@
-# SEV Agent Service Verifier
+# Automata AMD SEV-SNP RISC0 Verifier Project
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ BONSAI_API_KEY="YOUR_API_KEY" BONSAI_API_URL="BONSAI_URL" cargo run
 cargo build --release
 ```
 
-### Step 1: Store the Agent Service output in the `../data` directory
+### Step 1: Store the Attestation Report in the `../data` directory
 
 ### Step 2: Export the Bonsai Environmental Variables in your shell
 
@@ -44,10 +44,10 @@ export BONSAI_API_URL="https://api.bonsai.xyz"
 
 ### Step 3: At this point, make sure you are on the `sev-agent-verifier` directory.
 
-### Step 4: Insert the following command, to verify the agent service output.
+### Step 4: Insert the following command, to verify the attestation report.
 
 ```bash
-RUST_LOG="info" ./target/release/demo verify -o <path-to-the-agent-service-file> -w <your-wallet-key>
+RUST_LOG="info" ./target/release/demo verify -o <path-to-the-attestation-report-output-file> -w <your-wallet-key>
 ```
 
 _Note: Wallet key is optional. If left blank, a staticcall will be performed instead and you will not be able to see the transaction on the explorer.

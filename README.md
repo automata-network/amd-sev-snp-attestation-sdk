@@ -10,13 +10,16 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ## Overview
-TODO
+Automata AMD SEV-SNP Attestation SDK is the most-feature complete SDK for AMD SEV-SNP development, it consists of two parts:
+
+* SEV-SNP library: it helps developers to generate the AMD SEV-SNP Attestation Report in different cloud service providers (CSP).
+* Risc0 and Succinct ZK host and guest programs to interact with the corresponding zkVM servers to generate the proofs, and constructs the [Automata AMD SEV-SNP Attestation]() contracts calls to perform the on-chain verification.
 
 ### Environment Preparation
-TODO
+Refer to [SEV-SNP](./sev-snp/README.md) to setup the AMD SEV-SNP CVM in different cloud service providers (CSP).
 
 ## AMD SEV-SNP Attestation Generation
-TODO
+Use [SEV-SNP](./sev-snp/README.md#generate-attestation) to generate the AMD SEV-SNP Attestation Report with VEK Cert, you can find an example in [sev_snp_attestation](./sev-snp/examples/attestation.rs).
 
 ## AMD SEV-SNP Attestation Verification
 TODO
@@ -62,7 +65,7 @@ export SP1_PRIVATE_KEY=""
 ## Acknowledgements
 We would like to acknowledge the projects below whose previous work has been instrumental in making this project a reality.
 
-TODO
+* [virtee/sev](https://github.com/virtee/sev), an implementation of the [AMD Secure Encrypted Virtualization (SEV)](https://www.amd.com/content/dam/amd/en/documents/epyc-technical-docs/programmer-references/55766_SEV-KM_API_Specification.pdf) APIs and the [SEV Secure Nested Paging Firmware (SNP)](https://www.amd.com/content/dam/amd/en/documents/epyc-technical-docs/specifications/56860.pdf) ABIs.
 
 ## Disclaimer
 This project is under development. All source code and features are not production ready.
