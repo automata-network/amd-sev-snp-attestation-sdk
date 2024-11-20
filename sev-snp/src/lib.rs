@@ -1,12 +1,12 @@
 mod certs;
 mod cpu;
 mod kds;
-mod utils;
 mod verifier;
 
 pub mod device;
 pub mod error;
 pub mod key;
+pub mod utils;
 
 use certs::CertificateChain;
 use kds::KDS;
