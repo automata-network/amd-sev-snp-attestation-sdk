@@ -1,0 +1,25 @@
+[package]
+name = "host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sev-snp-lib = { path = "../../sev-snp-lib" }
+tpm-lib = { path = "../../tpm-lib" }
+risc0-zkvm = { workspace = true }
+serde = "1.0"
+serde_json = "1.0"
+base64 = "0.22.1"
+anyhow = "1.0.89"
+reqwest = "0.12.8"
+hex = "0.4.3"
+clap = { version = "4.5.20", features = ["derive"] }
+env_logger = "0.11.5"
+log = "0.4.22"
+alloy = { version = "0.2.1", features = ["full", "node-bindings"] }
+tokio = { version = "1.40.0", features = ["full"] }
+x509-parser = "0.16.0"
+risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum.git", tag = "v1.0.0" }
+
+[build-dependencies]
+risc0-build-kernel = { version = "=1.0.5" }
