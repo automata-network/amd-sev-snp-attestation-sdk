@@ -4,24 +4,16 @@ use risc0_zkvm::{compute_image_id, InnerReceipt::Groth16, ProverOpts};
 use alloy::primitives::Address;
 use anyhow::{Error, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use std::{
-    fs::read_to_string,
-    path::PathBuf
-};
+use std::{fs::read_to_string, path::PathBuf};
 use x509_parser::prelude::parse_x509_certificate;
 
+use guest_program_lib::{serialize_guest_input, ApiOpt, DecodedOutput, Tpm};
 use host::{
     chain::{send_verify_journal_on_chain, verify_journal_on_chain, ChainConfig},
-    utils::{
-        certs::{kds::*, pem_to_der, tpm::get_tpm_cert_der_chain},
-        parser::DecodedOutput,
-        serializer::serialize_guest_input,
-        ApiOpt, Tpm,
-    },
-    constants::{SEV_AGENT_VERIFIER_ADDRESS, RPC_URL},
     code::sev_guest::SEV_AGENT_VERIFIER_GUEST_ELF,
-    prove_input_and_get_journal,
-    prover_is_bonsai,
+    constants::{RPC_URL, SEV_AGENT_VERIFIER_ADDRESS},
+    prove_input_and_get_journal, prover_is_bonsai,
+    utils::certs::{kds::*, pem_to_der, tpm::get_tpm_cert_der_chain},
 };
 use sev_snp_lib::attestation::AttestationReport;
 
@@ -109,14 +101,16 @@ fn main() -> Result<()> {
             let output_data = read_to_string(&args.agent_output_path).unwrap();
             let output = serde_json::from_str(output_data.as_str()).unwrap();
 
-            // let api_opt = ApiOpt::from_output(&output);
-            let api_opt = ApiOpt::Sev;
+            let api_opt = ApiOpt::from_output(&output);
             println!("API Option: {:?}", api_opt);
 
             let decoded_output = DecodedOutput::decode_output(output);
             println!("decoded_output: {:?}", decoded_output);
             let raw_sev_attestation_report = decoded_output.sev_snp_attestation.sev_att;
-            println!("raw_sev_attestation_report: {:?}", raw_sev_attestation_report);
+            println!(
+                "raw_sev_attestation_report: {:?}",
+                raw_sev_attestation_report
+            );
 
             // let report = AttestationReport::from_bytes(&raw_sev_attestation_report);
             // let mut vek_cert_chain = vec![fetch_vcek_pem(&sev_snp_lib::types::ProcType::Milan, &report).unwrap()];

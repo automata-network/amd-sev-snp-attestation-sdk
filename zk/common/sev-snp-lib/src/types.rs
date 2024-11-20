@@ -16,7 +16,7 @@ pub enum CertType {
     VLEK,
 
     /// Certificate Revocation List (CRLs) certificate(s)
-    CRL
+    CRL,
 }
 
 impl CertType {
@@ -27,7 +27,7 @@ impl CertType {
             CertType::ASK => "4ab7b379-bbac-4fe4-a02f-05aef327c782".to_string(),
             CertType::VCEK => "63da758d-e664-4564-adc5-f4b93be8accd".to_string(),
             CertType::VLEK => "a8074bc2-a25a-483e-aae6-39c045a0b8a1".to_string(),
-            CertType::CRL => "92f81bc3-5811-4d3d-97ff-d19f88dc67ea".to_string()
+            CertType::CRL => "92f81bc3-5811-4d3d-97ff-d19f88dc67ea".to_string(),
         }
     }
 
@@ -38,7 +38,7 @@ impl CertType {
             CertType::ASK => "ask",
             CertType::VCEK => "vcek",
             CertType::VLEK => "vlek",
-            CertType::CRL => "crl"
+            CertType::CRL => "crl",
         }
     }
 }
@@ -64,7 +64,7 @@ impl ProcType {
             "Genoa" => ProcType::Genoa,
             "Bergamo" => ProcType::Bergamo,
             "Siena" => ProcType::Siena,
-            _ => panic!("Unknown Processor Model")
+            _ => panic!("Unknown Processor Model"),
         }
     }
 
@@ -73,7 +73,7 @@ impl ProcType {
             ProcType::Milan => "Milan",
             ProcType::Genoa => "Genoa",
             ProcType::Bergamo => "Bergamo",
-            ProcType::Siena => "Siena"
+            ProcType::Siena => "Siena",
         }
     }
 
@@ -82,7 +82,7 @@ impl ProcType {
             ProcType::Milan => 0,
             ProcType::Genoa => 1,
             ProcType::Bergamo => 2,
-            ProcType::Siena => 3
+            ProcType::Siena => 3,
         }
     }
 
@@ -92,7 +92,7 @@ impl ProcType {
             1 => ProcType::Genoa,
             2 => ProcType::Bergamo,
             3 => ProcType::Siena,
-            _ => panic!("Unknown Processor Model")
+            _ => panic!("Unknown Processor Model"),
         }
     }
 }

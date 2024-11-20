@@ -1,9 +1,9 @@
 pub mod kds;
 pub mod tpm;
 
-use x509_parser::prelude::Pem;
-use reqwest::blocking::get;
 use anyhow::Result;
+use reqwest::blocking::get;
+use x509_parser::prelude::Pem;
 
 // PEM chain to DER-encoded bytes conversion
 // Provide PEM data directly to this function call

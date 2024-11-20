@@ -7,7 +7,9 @@ edition = "2021"
 
 [dependencies]
 risc0-zkvm = { version = "=1.0.5", default-features = false, features = ['std'] }
-sev-snp-lib = { path = "../../../sev-snp-lib" }
-tpm-lib = { path = "../../../tpm-lib" }
 hex = "0.4.3"
-x509-verifier-rust-crypto = { path = "../../../x509-verifier-rust-crypto" }
+
+guest-program-lib = { path = "../../../../common/guest-program-lib" }
+sev-snp-lib = { path = "../../../../common/sev-snp-lib" }
+tpm-lib = { path = "../../../../common/tpm-lib" }
+x509-verifier-rust-crypto = { path = "../../../../common/x509-verifier-rust-crypto" }

@@ -1,5 +1,5 @@
-use risc0_zkvm::guest::env;
-use std::io::Read;
+#![no_main]
+sp1_zkvm::entrypoint!(main);
 
 use guest_program_lib::{deserialize_guest_input, ApiOpt};
 use sev_snp_lib::{
@@ -17,12 +17,11 @@ use x509_verifier_rust_crypto::{
     x509_parser::prelude::*,
 };
 
-fn main() {
+pub fn main() {
     // Read the input
-    let mut input_bytes = Vec::<u8>::new();
-    env::stdin().read_to_end(&mut input_bytes).unwrap();
+    let input = sp1_zkvm::io::read_vec();
 
-    let parsed = deserialize_guest_input(&input_bytes);
+    let parsed = deserialize_guest_input(&input);
 
     // Step 1: Verify VEK Chain, then verify SEV Attestation Report
     let vek_cert_chain = parse_der_chain(&parsed.vek_der_chain);
@@ -105,10 +104,9 @@ fn main() {
     //     "SEV Report Data does not match with nonce"
     // );
 
-    // Write the Journal
     let processor_model = get_processor_model_from_vek(vek_type, &vek_cert_chain[0]);
-    let journal: Vec<u8> = parsed.serialize_journal(processor_model);
-    env::commit_slice(&journal);
+    let output: Vec<u8> = parsed.serialize_journal(processor_model);
+    sp1_zkvm::io::commit_slice(&output);
 }
 
 fn parse_der_chain<'a>(der_chain: &'a Vec<Vec<u8>>) -> Vec<X509Certificate<'a>> {

@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "program",
+    "script",
+]
+resolver = "2"
+
+[workspace.dependencies]
+sp1-sdk = "3.0.0"
+sp1-zkvm = "3.0.0"
+guest-program-lib = { path = "../common/guest-program-lib" }
+sev-snp-lib = { path = "../common/sev-snp-lib" }
+tpm-lib = { path = "../common/tpm-lib" }
+x509-verifier-rust-crypto = { path = "../common/x509-verifier-rust-crypto" }
+
+[patch.crates-io]
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha2-v0.10.8" }
+crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", branch = "patch-v0.5.5" }

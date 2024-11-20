@@ -1,10 +1,6 @@
+use x509_verifier_rust_crypto::p384::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use x509_verifier_rust_crypto::x509_parser::oid_registry::asn1_rs::{oid, Oid};
 use x509_verifier_rust_crypto::x509_parser::prelude::{X509Certificate, X509Extension, X509Name};
-use x509_verifier_rust_crypto::p384::ecdsa::{
-    signature::Verifier,
-    Signature,
-    VerifyingKey
-};
 
 use super::attestation::AttestationReport;
 use super::types::CertType;
@@ -20,7 +16,7 @@ const VLEK_SUBJECT_CN: &str = "SEV-VLEK";
 
 pub fn verify_attestation_signature(
     vek_cert: &X509Certificate,
-    report: &AttestationReport
+    report: &AttestationReport,
 ) -> bool {
     let tbs = report.tbs;
     let pubkey = vek_cert.public_key().subject_public_key.as_ref();
@@ -43,7 +39,7 @@ pub fn verify_attestation_signature(
             let signature = Signature::from_slice(&sig_slice).unwrap();
 
             verifying_key.verify(&tbs, &signature).is_ok()
-        },
+        }
         _ => {
             panic!("Unsupported sig algo");
         }

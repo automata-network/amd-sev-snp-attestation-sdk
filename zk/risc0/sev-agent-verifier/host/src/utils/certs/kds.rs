@@ -1,17 +1,17 @@
 use anyhow::Result;
 
-use sev_snp_lib::types::{CertType, ProcType};
-use sev_snp_lib::attestation::AttestationReport;
 use super::fetch_certificate;
+use sev_snp_lib::attestation::AttestationReport;
+use sev_snp_lib::types::{CertType, ProcType};
 
 const KDS_BASE_URL: &str = "https://kdsintf.amd.com/";
 
 pub fn fetch_vek_issuer_ca_pem_chain(
     processor_model: &ProcType,
-    cert_type: &CertType
+    cert_type: &CertType,
 ) -> Result<Vec<u8>> {
     let kds_url = format!(
-        "{}/{}/v1/{}/cert_chain", 
+        "{}/{}/v1/{}/cert_chain",
         KDS_BASE_URL,
         cert_type.to_str(),
         processor_model.to_str()
@@ -21,10 +21,7 @@ pub fn fetch_vek_issuer_ca_pem_chain(
     Ok(res)
 }
 
-pub fn fetch_vcek_pem (
-    processor_model: &ProcType,
-    report: &AttestationReport
-) -> Result<Vec<u8>> {
+pub fn fetch_vcek_pem(processor_model: &ProcType, report: &AttestationReport) -> Result<Vec<u8>> {
     let reported_tcb = report.reported_tcb;
     let chip_id = hex::encode(report.chip_id.as_slice());
     let kds_url = format!(

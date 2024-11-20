@@ -6,9 +6,9 @@ pub(crate) type Result<T> = std::result::Result<T, std::io::Error>;
 use constants::{TPM_ALG_SHA1, TPM_ALG_SHA256};
 use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use sha1::{Digest, Sha1};
+use sha2::Sha256;
 use tpm::{FromBytes, TPMSAttest, TPMUAttest};
 use x509_parser::prelude::*;
-use sha2::Sha256;
 
 pub fn verify_tpm_quote_and_pcr10(
     tpm_quote: &[u8],

@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sev-snp-lib = { path = "../../sev-snp-lib" }
-tpm-lib = { path = "../../tpm-lib" }
+guest-program-lib = { path = "../../../common/guest-program-lib" }
+sev-snp-lib = { path = "../../../common/sev-snp-lib" }
+tpm-lib = { path = "../../../common/tpm-lib" }
 risc0-zkvm = { workspace = true }
 serde = "1.0"
 serde_json = "1.0"

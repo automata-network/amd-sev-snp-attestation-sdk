@@ -1,0 +1,28 @@
+[package]
+version = "0.1.0"
+name = "amd-sev-snp-attestation-verification-script"
+edition = "2021"
+default-run = "verifier"
+
+[[bin]]
+name = "verifier"
+path = "src/bin/verifier.rs"
+
+[dependencies]
+sp1-sdk.workspace = true
+guest-program-lib.workspace = true
+sev-snp-lib.workspace = true
+tpm-lib.workspace = true
+
+anyhow = "1.0.89"
+alloy = { version = "0.2.1", features = ["full", "node-bindings"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+clap = { version = "4.0", features = ["derive", "env"] }
+reqwest = { version = "0.12.8", features = ["blocking"] }
+tracing = "0.1.40"
+hex = "0.4.3"
+x509-parser = "0.16.0"
+
+[build-dependencies]
+sp1-helper = "2.0.0"

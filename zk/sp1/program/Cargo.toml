@@ -1,0 +1,11 @@
+[package]
+version = "0.1.0"
+name = "amd-sev-snp-attestation-sp1-guest-program"
+edition = "2021"
+
+[dependencies]
+sp1-zkvm.workspace = true
+guest-program-lib.workspace = true
+sev-snp-lib.workspace = true
+tpm-lib.workspace = true
+x509-verifier-rust-crypto.workspace = true

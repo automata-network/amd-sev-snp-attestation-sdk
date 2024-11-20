@@ -78,7 +78,7 @@ pub struct AttestationReport {
     /// The format of the signature is found within Signature.
     pub signature: Signature,
 
-    // TEMP: I think it would be great, 
+    // TEMP: I think it would be great,
     // if I can simply pull the tbs value directly from memory.
     // since the tbs is just a substring of the raw_attestation_report
     // occupies the first 672 bytes
@@ -326,18 +326,13 @@ pub struct TcbVersion {
 }
 
 impl TcbVersion {
-    pub fn new(
-        bootloader: u8,
-        tee: u8,
-        snp: u8,
-        microcode: u8
-    ) -> Self {
+    pub fn new(bootloader: u8, tee: u8, snp: u8, microcode: u8) -> Self {
         TcbVersion {
             bootloader,
             tee,
             _reserved: [0u8; 4],
             snp,
-            microcode
+            microcode,
         }
     }
 

@@ -622,6 +622,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "guest-program-lib"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
+ "sev-snp-lib",
+ "tpm-lib",
+ "x509-verifier-rust-crypto",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1269,6 +1281,7 @@ dependencies = [
 name = "sev_agent_verifier_guest"
 version = "0.1.0"
 dependencies = [
+ "guest-program-lib",
  "hex",
  "risc0-zkvm",
  "sev-snp-lib",

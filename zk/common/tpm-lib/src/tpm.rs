@@ -16,37 +16,25 @@ pub struct TPMSAttest {
     pub extra_data: Vec<u8>,
     pub tpms_clock_info: ClockInfo,
     pub firmware_version: u64,
-    pub attested: TPMUAttest
+    pub attested: TPMUAttest,
 }
 impl FromBytes for TPMSAttest {
     fn from_bytes(raw_attest: &[u8]) -> Self {
-        let magic = u32::from_be_bytes([
-            raw_attest[0],
-            raw_attest[1],
-            raw_attest[2],
-            raw_attest[3]
-        ]);
+        let magic =
+            u32::from_be_bytes([raw_attest[0], raw_attest[1], raw_attest[2], raw_attest[3]]);
 
         assert!(magic == TPM_GENERATED_VALUE, "Invalid magic value");
 
-        let att_type = u16::from_be_bytes([
-            raw_attest[4],
-            raw_attest[5]
-        ]);
+        let att_type = u16::from_be_bytes([raw_attest[4], raw_attest[5]]);
 
-        let qualified_signer_len = u16::from_be_bytes([
-            raw_attest[6],
-            raw_attest[7]
-        ]) as usize;
+        let qualified_signer_len = u16::from_be_bytes([raw_attest[6], raw_attest[7]]) as usize;
         let mut offset = 8usize;
         let mut qualified_signer: Vec<u8> = Vec::with_capacity(qualified_signer_len);
         qualified_signer.extend_from_slice(&raw_attest[offset..offset + qualified_signer_len]);
         offset += qualified_signer_len;
 
-        let extra_data_len = u16::from_be_bytes([
-            raw_attest[offset],
-            raw_attest[offset + 1]
-        ]) as usize;
+        let extra_data_len =
+            u16::from_be_bytes([raw_attest[offset], raw_attest[offset + 1]]) as usize;
         offset += 2;
         let mut extra_data: Vec<u8> = Vec::with_capacity(extra_data_len);
         extra_data.extend_from_slice(&raw_attest[offset..offset + extra_data_len]);
@@ -64,7 +52,7 @@ impl FromBytes for TPMSAttest {
             raw_attest[offset + 4],
             raw_attest[offset + 5],
             raw_attest[offset + 6],
-            raw_attest[offset + 7]
+            raw_attest[offset + 7],
         ]);
         offset += 8;
 
@@ -72,8 +60,8 @@ impl FromBytes for TPMSAttest {
             TPM_ST_ATTEST_QUOTE => {
                 let tpms_quote_info = TPMSQuoteInfo::from_bytes(&raw_attest[offset..]);
                 TPMUAttest::Quote(tpms_quote_info)
-            },
-            _ => panic!("Unsupported attested type")
+            }
+            _ => panic!("Unsupported attested type"),
         };
 
         TPMSAttest {
@@ -83,7 +71,7 @@ impl FromBytes for TPMSAttest {
             extra_data,
             tpms_clock_info,
             firmware_version,
-            attested
+            attested,
         }
     }
 }
@@ -94,11 +82,14 @@ pub struct ClockInfo {
     pub clock: u64,
     pub reset_count: u32,
     pub restart_count: u32,
-    pub safe: bool
+    pub safe: bool,
 }
 impl FromBytes for ClockInfo {
     fn from_bytes(raw_clock_info: &[u8]) -> Self {
-        assert!(raw_clock_info.len() == CLOCK_LEN, "Incorrect TPMS_CLOCK_INFO length");
+        assert!(
+            raw_clock_info.len() == CLOCK_LEN,
+            "Incorrect TPMS_CLOCK_INFO length"
+        );
         let clock = u64::from_be_bytes([
             raw_clock_info[0],
             raw_clock_info[1],
@@ -113,25 +104,25 @@ impl FromBytes for ClockInfo {
             raw_clock_info[8],
             raw_clock_info[9],
             raw_clock_info[10],
-            raw_clock_info[11]
+            raw_clock_info[11],
         ]);
         let restart_count = u32::from_be_bytes([
             raw_clock_info[12],
             raw_clock_info[13],
             raw_clock_info[14],
-            raw_clock_info[15]
+            raw_clock_info[15],
         ]);
         let safe = match raw_clock_info[16] {
             0 => false,
             1 => true,
-            _ => panic!("Invalid bool value")
+            _ => panic!("Invalid bool value"),
         };
 
         ClockInfo {
             clock,
             reset_count,
             restart_count,
-            safe
+            safe,
         }
     }
 }
@@ -139,7 +130,7 @@ impl FromBytes for ClockInfo {
 // 10.12.7
 #[derive(Debug)]
 pub enum TPMUAttest {
-    Quote(TPMSQuoteInfo)
+    Quote(TPMSQuoteInfo),
 }
 
 // 10.12.1
@@ -148,7 +139,7 @@ pub struct TPMSQuoteInfo {
     // TPML_PCR_SELECTION is defined here rather than its own struct
     pub count: u32,
     pub pcr_selections: Vec<TPMSPCRSelection>,
-    pub pcr_digest: Vec<u8>
+    pub pcr_digest: Vec<u8>,
 }
 impl FromBytes for TPMSQuoteInfo {
     fn from_bytes(raw_tpms_quote_info: &[u8]) -> Self {
@@ -156,46 +147,43 @@ impl FromBytes for TPMSQuoteInfo {
             raw_tpms_quote_info[0],
             raw_tpms_quote_info[1],
             raw_tpms_quote_info[2],
-            raw_tpms_quote_info[3]
+            raw_tpms_quote_info[3],
         ]);
 
         // TODO: support multiple PCRSelections
-        assert!(count == 1, "Currently does not support more than one PCRSelections");
+        assert!(
+            count == 1,
+            "Currently does not support more than one PCRSelections"
+        );
         let mut pcr_selections: Vec<TPMSPCRSelection> = Vec::with_capacity(count as usize);
         let pcr_selection = TPMSPCRSelection::from_bytes(&raw_tpms_quote_info[4..]);
         let offset = 4usize + pcr_selection.size();
         pcr_selections.push(pcr_selection);
 
         let pcr_digest_slice = &raw_tpms_quote_info[offset..];
-        let pcr_digest_size = u16::from_be_bytes([
-            pcr_digest_slice[0],
-            pcr_digest_slice[1]
-        ]) as usize;
+        let pcr_digest_size =
+            u16::from_be_bytes([pcr_digest_slice[0], pcr_digest_slice[1]]) as usize;
         let mut pcr_digest: Vec<u8> = Vec::with_capacity(pcr_digest_size as usize);
         pcr_digest.extend_from_slice(&pcr_digest_slice[2..2 + pcr_digest_size]);
 
         TPMSQuoteInfo {
             count,
             pcr_selections,
-            pcr_digest
+            pcr_digest,
         }
     }
 }
-
 
 // 10.6.2
 #[derive(Debug)]
 pub struct TPMSPCRSelection {
     pub hash: u16,
     pub size_of_select: u8,
-    pub pcr_select: Vec<u8>
+    pub pcr_select: Vec<u8>,
 }
 impl FromBytes for TPMSPCRSelection {
     fn from_bytes(raw_tpms_pcr_selection: &[u8]) -> Self {
-        let hash = u16::from_be_bytes([
-            raw_tpms_pcr_selection[0],
-            raw_tpms_pcr_selection[1]
-        ]);
+        let hash = u16::from_be_bytes([raw_tpms_pcr_selection[0], raw_tpms_pcr_selection[1]]);
 
         let size_of_select = raw_tpms_pcr_selection[2];
 
@@ -205,7 +193,7 @@ impl FromBytes for TPMSPCRSelection {
         TPMSPCRSelection {
             hash,
             size_of_select,
-            pcr_select
+            pcr_select,
         }
     }
 }
