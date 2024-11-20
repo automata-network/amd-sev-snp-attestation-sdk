@@ -30,7 +30,11 @@ pub struct DecodedTpmAttestation {
 
 impl DecodedOutput {
     pub fn decode_output(output: Output) -> Self {
-        let nonce = BASE64_STANDARD.decode(output.nonce).unwrap();
+        let nonce = if let Some(n) = output.nonce {
+            BASE64_STANDARD.decode(n).unwrap()
+        } else {
+            vec![0]
+        };
         let sev_snp_attestation = DecodedSevAttestation{
             sev_att: BASE64_STANDARD.decode(output.sev_snp.attestation_report).unwrap(),
             vek_der: BASE64_STANDARD.decode(output.sev_snp.vek_cert).unwrap()
@@ -87,7 +91,7 @@ pub struct Output {
     pub sev_snp: SevSnp,
     pub tpm: Option<Tpm>,
     pub ima_measurement: Option<String>,
-    pub nonce: String
+    pub nonce: Option<String>
 }
 
 #[derive(Debug, Deserialize)]

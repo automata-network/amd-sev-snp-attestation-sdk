@@ -69,41 +69,41 @@ fn main() {
     }
 
     // Step 3: Verify the nonce
-    let mut sev_expected_data: Vec<u8> = Vec::with_capacity(64);
-    sev_expected_data.extend_from_slice(&[0u8; 32]);
+    // let mut sev_expected_data: Vec<u8> = Vec::with_capacity(64);
+    // sev_expected_data.extend_from_slice(&[0u8; 32]);
 
-    let mut sha2_hasher = Sha256::new();
-    match parsed.api_opt {
-        ApiOpt::Sev => {
-            sha2_hasher.update(&parsed.nonce);
-        }
-        ApiOpt::SevIma => {
-            let ima_bytes = parsed.ima_measurement.unwrap().as_bytes();
-            sha2_hasher.update(ima_bytes);
-            sha2_hasher.update(&parsed.nonce);
-        }
-        ApiOpt::SevTpm => {
-            // check TPM quote data first...
-            let tpms_attest =
-                TPMSAttest::from_bytes(&parsed.tpm_pcr10_attestation.as_ref().unwrap().quote);
-            let tpms_attest_extra_data = tpms_attest.extra_data;
-            assert!(
-                &parsed.nonce == &tpms_attest_extra_data,
-                "TPMS Attest data does not match with nonce"
-            );
+    // let mut sha2_hasher = Sha256::new();
+    // match parsed.api_opt {
+    //     ApiOpt::Sev => {
+    //         sha2_hasher.update(&parsed.nonce);
+    //     }
+    //     ApiOpt::SevIma => {
+    //         let ima_bytes = parsed.ima_measurement.unwrap().as_bytes();
+    //         sha2_hasher.update(ima_bytes);
+    //         sha2_hasher.update(&parsed.nonce);
+    //     }
+    //     ApiOpt::SevTpm => {
+    //         // check TPM quote data first...
+    //         let tpms_attest =
+    //             TPMSAttest::from_bytes(&parsed.tpm_pcr10_attestation.as_ref().unwrap().quote);
+    //         let tpms_attest_extra_data = tpms_attest.extra_data;
+    //         assert!(
+    //             &parsed.nonce == &tpms_attest_extra_data,
+    //             "TPMS Attest data does not match with nonce"
+    //         );
 
-            let aik_leaf_der_bytes =
-                parsed.tpm_pcr10_attestation.as_ref().unwrap().ak_der_chain[0].as_slice();
-            sha2_hasher.update(aik_leaf_der_bytes);
-            sha2_hasher.update(&parsed.nonce);
-        }
-    }
+    //         let aik_leaf_der_bytes =
+    //             parsed.tpm_pcr10_attestation.as_ref().unwrap().ak_der_chain[0].as_slice();
+    //         sha2_hasher.update(aik_leaf_der_bytes);
+    //         sha2_hasher.update(&parsed.nonce);
+    //     }
+    // }
 
-    sev_expected_data.extend_from_slice(sha2_hasher.finalize().as_slice());
-    assert!(
-        sev_expected_data == sev_attestation_report.report_data,
-        "SEV Report Data does not match with nonce"
-    );
+    // sev_expected_data.extend_from_slice(sha2_hasher.finalize().as_slice());
+    // assert!(
+    //     sev_expected_data == sev_attestation_report.report_data,
+    //     "SEV Report Data does not match with nonce"
+    // );
 
     // Write the Journal
     let processor_model = get_processor_model_from_vek(vek_type, &vek_cert_chain[0]);

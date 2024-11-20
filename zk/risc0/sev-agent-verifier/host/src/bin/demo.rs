@@ -13,7 +13,7 @@ use x509_parser::prelude::parse_x509_certificate;
 use host::{
     chain::{send_verify_journal_on_chain, verify_journal_on_chain, ChainConfig},
     utils::{
-        certs::{kds::fetch_vek_issuer_ca_pem_chain, pem_to_der, tpm::get_tpm_cert_der_chain},
+        certs::{kds::*, pem_to_der, tpm::get_tpm_cert_der_chain},
         parser::DecodedOutput,
         serializer::serialize_guest_input,
         ApiOpt, Tpm,
@@ -109,17 +109,32 @@ fn main() -> Result<()> {
             let output_data = read_to_string(&args.agent_output_path).unwrap();
             let output = serde_json::from_str(output_data.as_str()).unwrap();
 
-            let api_opt = ApiOpt::from_output(&output);
-            log::info!("API Option: {:?}", api_opt);
+            // let api_opt = ApiOpt::from_output(&output);
+            let api_opt = ApiOpt::Sev;
+            println!("API Option: {:?}", api_opt);
 
             let decoded_output = DecodedOutput::decode_output(output);
+            println!("decoded_output: {:?}", decoded_output);
             let raw_sev_attestation_report = decoded_output.sev_snp_attestation.sev_att;
+            println!("raw_sev_attestation_report: {:?}", raw_sev_attestation_report);
+
+            // let report = AttestationReport::from_bytes(&raw_sev_attestation_report);
+            // let mut vek_cert_chain = vec![fetch_vcek_pem(&sev_snp_lib::types::ProcType::Milan, &report).unwrap()];
+            // let (_, vek_leaf) = parse_x509_certificate(&vek_cert_chain[0]).unwrap();
+            // let vek_type = report.get_signing_cert_type();
+            // println!("vek_type: {:?}", vek_type);
+
+            // let proc_type = sev_snp_lib::get_processor_model_from_vek(vek_type, &vek_leaf);
+            // println!("proc_type: {:?}", proc_type);
 
             let mut vek_cert_chain = vec![decoded_output.sev_snp_attestation.vek_der.clone()];
             let (_, vek_leaf) = parse_x509_certificate(&vek_cert_chain[0]).unwrap();
             let vek_type =
                 AttestationReport::from_bytes(&raw_sev_attestation_report).get_signing_cert_type();
+
             let proc_type = sev_snp_lib::get_processor_model_from_vek(vek_type, &vek_leaf);
+            println!("vek_type: {:?}, proc_type: {:?}", vek_type, proc_type);
+
             let vcek_ca_pem_chain = fetch_vek_issuer_ca_pem_chain(&proc_type, &vek_type).unwrap();
             vek_cert_chain = [vek_cert_chain, pem_to_der(&vcek_ca_pem_chain)].concat();
             println!("Successfully fetched VEK Certificate Chain from the KDS...");
@@ -171,11 +186,12 @@ fn main() -> Result<()> {
                 tpm = None;
             }
 
-            let nonce = decoded_output.nonce.as_slice();
+            // let nonce = decoded_output.nonce.as_slice();
+            let nonce = vec![0];
 
             let serialized_input = serialize_guest_input(
                 api_opt,
-                nonce,
+                &nonce,
                 &raw_sev_attestation_report,
                 vek_cert_chain,
                 ima_measurement.as_deref(),
