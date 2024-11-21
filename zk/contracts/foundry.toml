@@ -10,7 +10,8 @@ remappings = [
     "risc0/=lib/risc0-ethereum/contracts/src/",
     "solady/=lib/solady/src/",
     # foundry is not able to detect this particular remapping for some reason...
-    "openzeppelin/=lib/risc0-ethereum/lib/openzeppelin-contracts/"
+    "openzeppelin/=lib/risc0-ethereum/lib/openzeppelin-contracts/",
+    "@sp1-contracts/=lib/sp1-contracts/contracts/src/"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -10,7 +10,7 @@ enum ApiOpt {
     SEV_TPM
 }
 
-struct Journal {
+struct ZkOutput {
     ApiOpt apiOpt;
     ProcessorType processorModel;
     bytes rawSevAttestationReport;

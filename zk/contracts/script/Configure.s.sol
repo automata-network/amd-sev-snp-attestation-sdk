@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Script, console} from "forge-std/Script.sol";
 import {KDS} from "../src/KDS.sol";
-import {SEVAgentAttestation} from "../src/SEVAgentAttestation.sol";
+import "../src/SEVAgentAttestation.sol";
 import "../src/types/Structs.sol";
 
 contract Configure is Script {
@@ -15,11 +15,13 @@ contract Configure is Script {
         kds.configureRootPubkey(ProcessorType(processorModel), abi.encode(e, m));
     }
 
-    function configureRiscZero(address sevAddr) public {
-        SEVAgentAttestation sev = SEVAgentAttestation(sevAddr);
-        address riscZeroVerifier = vm.envAddress("RISCZERO_VERIFIER_ADDR");
-        bytes32 sevImageId = vm.envBytes32("SEV_SNP_IMAGE_ID");
+    function configureZk(uint8 zk, address verifierGateway, bytes32 programId) public {
+        address attestationAddr = vm.envAddress("AMD_SEV_SNP_ATTESTATION_VERIFIER");
+
+        ZkCoProcessorConfig memory config =
+            ZkCoProcessorConfig({programIdentifier: programId, zkVerifier: verifierGateway});
+
         vm.broadcast(privateKey);
-        sev.updateRisc0Config(riscZeroVerifier, sevImageId);
+        SEVAgentAttestation(attestationAddr).setZkConfiguration(ZkCoProcessorType(zk), config);
     }
 }

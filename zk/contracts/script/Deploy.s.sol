@@ -19,10 +19,8 @@ contract Deploy is Script {
         vm.broadcast(privateKey);
 
         address kds = vm.envAddress("KDS_ADDRESS");
-        address risc0Verifier = vm.envAddress("RISC0_VERIFIER");
-        bytes32 sevAgentImageId = vm.envBytes32("SEV_AGENT_IMAGE_ID");
 
-        SEVAgentAttestation sev = new SEVAgentAttestation(risc0Verifier, sevAgentImageId, kds);
+        SEVAgentAttestation sev = new SEVAgentAttestation(kds);
 
         console.log("SEVAgentAttestation deployed at: ", address(sev));
     }
