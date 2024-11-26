@@ -59,6 +59,7 @@ pub async fn verify_journal_on_chain(
         SEVAgentAttestation::new(config.attestation_contract_address, &provider);
     let call_builder = sev_attestation_contract.verifyAndAttestWithZKProof(
         Bytes::copy_from_slice(journal),
+        1,
         Bytes::copy_from_slice(seal),
     );
     call_builder.call().await?;
@@ -79,6 +80,7 @@ pub async fn send_verify_journal_on_chain(
         SEVAgentAttestation::new(config.attestation_contract_address, &provider);
     let tx_builder = sev_attestation_contract.verifyAndAttestWithZKProof(
         Bytes::copy_from_slice(journal),
+        1,
         Bytes::copy_from_slice(seal),
     );
     let tx_receipt = tx_builder.send().await?.get_receipt().await?;
