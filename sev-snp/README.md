@@ -89,7 +89,7 @@ To verify your attestation repot on chain, you can use either [RISC0](../zk/risc
 
 2. Follow the instructions at [RISC0](../zk/risc0/) or [SP1](../zk/sp1/) folder, to see how to generate a proof and validate it offchain.
 
-3. Send the proof with necessary output to the [smart contract]().
+3. Send the proof with necessary output to the [Automata AMD SEV-SNP Attestation contract](https://explorer-testnet.ata.network/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F).
 
 #### Verify Attestation off-chain
 

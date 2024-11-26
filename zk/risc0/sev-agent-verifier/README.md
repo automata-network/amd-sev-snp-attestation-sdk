@@ -2,8 +2,8 @@
 
 ## Quick Start
 
-First, make sure [rustup] is installed. The
-[`rust-toolchain.toml`][rust-toolchain] file will be used by `cargo` to
+First, make sure `rustup` is installed. The
+`rust-toolchain.toml` file will be used by `cargo` to
 automatically install the correct version.
 
 To run an example [test case](./host/src//lib.rs), insert the following command:
@@ -15,7 +15,7 @@ RISC0_DEV_MODE=true cargo test
 ## Running proofs remotely on Bonsai
 
 _Note: The Bonsai proving service is still in early Alpha; an API key is
-required for access. [Click here to request access][bonsai access]._
+required for access. [Click here to request access](https://bonsai.xyz/apply)._
 
 If you have access to the URL and API key to Bonsai you can run your proofs
 remotely. To prove in Bonsai mode, invoke `cargo run` with two additional
@@ -83,7 +83,7 @@ Options:
       --verifier_address <VERIFIER_ADDRESS>
           The address of SEVAgentVerifier contract. This is where proofs are verified on-chain
           
-          [default: 0xBfAd01Ffa59C4A70d80b923Ab591F5b7dE98b220]
+          [default: 0xDe510E1F9258c94c5520B717210a301Cc8297F1F]
 
   -w, --wallet-key <WALLET_KEY>
           Optional: For users intend to explicitly submit a transaction for verification. If left blank, a static call is made instead

@@ -52,6 +52,9 @@ To retrieve your `programVKey` for your on-chain contract, run the following com
 cargo prove vkey --elf elf/riscv32im-succinct-zkvm-elf
 ```
 
+The [VKEY](https://docs.succinct.xyz/verification/onchain/solidity-sdk.html?#finding-your-program-vkey) currently used for the DCAP SP1 Program is
+`0000e024beed46a1ff7ae986500393a8c0f84921a0b95369b98e16295b0b05b6`.
+
 ## Using the Prover Network
 
 We highly recommend using the Succinct prover network for any non-trivial programs or benchmarking purposes. For more information, see the [setup guide](https://docs.succinct.xyz/generating-proofs/prover-network.html).

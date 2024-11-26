@@ -13,7 +13,7 @@
 Automata AMD SEV-SNP Attestation SDK is the most-feature complete SDK for AMD SEV-SNP development, it consists of two parts:
 
 * SEV-SNP library: it helps developers to generate the AMD SEV-SNP Attestation Report in different cloud service providers (CSP).
-* Risc0 and Succinct ZK host and guest programs to interact with the corresponding zkVM servers to generate the proofs, and constructs the [Automata AMD SEV-SNP Attestation]() contracts calls to perform the on-chain verification.
+* Risc0 and Succinct ZK host and guest programs to interact with the corresponding zkVM servers to generate the proofs, and constructs the [Automata AMD SEV-SNP Attestation](https://explorer-testnet.ata.network/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F) contract calls to perform the on-chain verification.
 
 ### Environment Preparation
 Refer to [SEV-SNP](./sev-snp/README.md) to setup the AMD SEV-SNP CVM in different cloud service providers (CSP).
@@ -22,7 +22,27 @@ Refer to [SEV-SNP](./sev-snp/README.md) to setup the AMD SEV-SNP CVM in differen
 Use [SEV-SNP](./sev-snp/README.md#generate-attestation) to generate the AMD SEV-SNP Attestation Report with VEK Cert, you can find an example in [sev_snp_attestation](./sev-snp/examples/attestation.rs).
 
 ## AMD SEV-SNP Attestation Verification
-TODO
+Combining the Attestation Generation and the ZK Optimization, you can generate an either Risc0 or SP1 ZK proof with the AMD SEV-SNP Attestation Report and the VEK Cert output, and verify it via [verifyAndAttestWithZKProof](https://explorer-testnet.ata.network:443/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F?tab=read_contract#57859ce0) method.
+
+```solidity
+/**
+ * @param output the zkVM output.
+ * @param zkCoprocessor 1 - RiscZero, 2 - Succinct.
+ * @param proofBytes the zk proof.
+*/
+function verifyAndAttestWithZKProof(
+    bytes calldata output,
+    ZkCoProcessorType zkCoprocessor,
+    bytes calldata proofBytes
+)
+```
+
+### Deployment Information
+
+The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for the DCAP RiscZero Guest Program is `c0dd9dfee102af3b08fa4759537b1b5a114e9553ec5b08e1343f60b6dfa5ee24`.
+
+The [VKEY](https://docs.succinct.xyz/verification/onchain/solidity-sdk.html?#finding-your-program-vkey) currently used for the DCAP SP1 Program is
+`0000e024beed46a1ff7ae986500393a8c0f84921a0b95369b98e16295b0b05b6`.
 
 ### ZK Optimization
 
