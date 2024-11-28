@@ -39,7 +39,7 @@ function verifyAndAttestWithZKProof(
 
 ### Deployment Information
 
-The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for the DCAP RiscZero Guest Program is `c0dd9dfee102af3b08fa4759537b1b5a114e9553ec5b08e1343f60b6dfa5ee24`.
+The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for the DCAP RiscZero Guest Program is `2d103c1cf21571889427523c0933e1cdc99c1c9474fb6f829999964b1ce820d5`.
 
 The [VKEY](https://docs.succinct.xyz/verification/onchain/solidity-sdk.html?#finding-your-program-vkey) currently used for the DCAP SP1 Program is
 `0000e024beed46a1ff7ae986500393a8c0f84921a0b95369b98e16295b0b05b6`.

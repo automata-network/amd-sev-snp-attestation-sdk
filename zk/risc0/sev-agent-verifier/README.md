@@ -92,3 +92,7 @@ Options:
           Print help (see a summary with '-h')
 
 ```
+
+## Deployment Information
+
+The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for the DCAP RiscZero Guest Program is `2d103c1cf21571889427523c0933e1cdc99c1c9474fb6f829999964b1ce820d5`.
