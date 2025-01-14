@@ -44,6 +44,12 @@ The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for 
 The [VKEY](https://docs.succinct.xyz/verification/onchain/solidity-sdk.html?#finding-your-program-vkey) currently used for the DCAP SP1 Program is
 `0000e024beed46a1ff7ae986500393a8c0f84921a0b95369b98e16295b0b05b6`.
 
+| Contract | Network | Address |
+| --- | --- | --- |
+| SEVAgentAttestation | Automata Testnet | [0xDe510E1F9258c94c5520B717210a301Cc8297F1F](https://explorer-testnet.ata.network/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F) |
+| RiscZeroVerifierRouter | | [0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65](https://explorer-testnet.ata.network/address/0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65) |
+| SP1VerifierRouter | | [0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6](https://explorer-testnet.ata.network/address/0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6) |
+
 ### ZK Optimization
 
 #### Risc0
