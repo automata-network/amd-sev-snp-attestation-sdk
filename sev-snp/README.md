@@ -60,18 +60,18 @@ let sev_snp = SevSnp::new();
 ### Generate Attestation
 To generate an attestation with default options, you can do so like this:
 ```rust
-let report = sev_snp.get_attestation_report()?;
+let (report, _) = sev_snp.get_attestation_report()?;
 ```
 
 If you wish to customise options for the attestation report, you can do something like this:
 
 ```rust
-use sev_snp::device::DeviceOptions;
+use sev_snp::device::ReportOptions;
 
 ...
 
 sev_snp.get_attestation_report_with_options(
-    DeviceOptions {
+    ReportOptions {
         report_data: Some([0; 64]),
         vmpl: Some(1),
     }
@@ -96,21 +96,25 @@ To verify your attestation repot on chain, you can use either [RISC0](../zk/risc
 To verify your attestation report, you can use the following function:
 
 ```rust
-sev_snp.verify_attestation_report(&report)?;
+sev_snp.verify_attestation_report(&report, None)?;
 ```
 
 If you wish to choose how the attestation report is verified, you can use the following function:
 
 ```rust
-sev_snp.verify_attestation_report_with_options(&report, &sev_snp::AttestationFlow::Extended)?;
+sev_snp.verify_attestation_report_with_options(&report, &sev_snp::AttestationFlow::Extended, None)?;
 ```
-There are 3 ways to verify the attestation report:
-1. If using a VLEK certificate, you can use the `&sev_snp::AttestationFlow::Vlek` option.
-2. If using a VECK certificate, you can choose to use the `&sev_snp::AttestationFlow::Regular` or `&sev_snp::AttestationFlow::Extended` option.
-   - In the extended verification method, the report is verified by using CA certs retrieved from the AMD SEV device.
+There are 2 ways to verify the attestation report.
+You can choose to use the `&sev_snp::AttestationFlow::Regular` or `&sev_snp::AttestationFlow::Extended` option.
+   - In the extended verification method, the report is verified by using CA certs retrieved from the AMD SEV device. This means that this verification method can only be performed on the SEV-SNP VM where the report is generated.
    - In the regular verification method, the report is verified by using CA certs retrieved from the AMD Key Distribution Service (KDS). 
 
-> Note that only GCP allows choices (extended or regular) for attestation report verification. If the additional option specified by your code does not match what the CSP allows for, an error will be returned.
+Note the following CSP specific details:
+- GCP: Either Extended or Regular can be used for attestation report verification
+- Azure: Only Regular can be used for attestation report verification
+- AWS: Either Extended or Regular can be used, but note that:
+    - In Regular verification method: the VLEK cert must be provided instead of `None`. Only ARK and ASK can be retrieved from the KDS.
+    - In Extended verification method: Only the VLEK cert can be retrieved from the SEV-SNP device. ARK and ASK will be retrieved from the KDS.
 
 ### Generate Derived Key
 > Note: This option is not available on Azure Confidential VMs.

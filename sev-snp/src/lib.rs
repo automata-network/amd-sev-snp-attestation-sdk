@@ -1,14 +1,14 @@
 mod certs;
 mod cpu;
 mod kds;
+mod utils;
 mod verifier;
 
 pub mod device;
 pub mod error;
-pub mod key;
-pub mod utils;
 
 use certs::CertificateChain;
+use device::{DerivedKeyOptions, Device, ReportOptions};
 use kds::KDS;
 use sev::certs::snp::Certificate;
 use sev::firmware::guest::AttestationReport;
@@ -22,28 +22,27 @@ use crate::utils::AttestationReportExt;
 /// certs retrieved from SEV-SNP device or KDS or custom.
 #[derive(PartialEq)]
 pub enum AttestationFlow {
+    /// Regular attestation flow, using certs from KDS
+    /// This is the default flow.
+    /// When attestation report is signed with VCEK, no certs need to be provided as they can be retrieved from KDS.
+    /// When the attestation report is signed with VLEK, the VLEK cert must be provided.
+    /// The ARK and ASK certs are retrieved from KDS.
     Regular,
+    /// Extended attestation flow, using certs from SEV-SNP device
+    /// When attestation report is signed with VCEK, all certs can be retrieved from the device.
+    /// When the attestation report is signed with VLEK, only the VLEK cert can be retrieved from the device.
+    /// The ARK and ASK certs are retrieved from KDS.
     Extended,
-    Vlek,
 }
 
 pub struct SevSnp {
-    is_hyperv: bool,
     kds: KDS,
-    cert_device: device::Device,
 }
 
 impl SevSnp {
-    pub fn new() -> Self {
-        let is_hyperv = crate::utils::HyperV::present();
+    pub fn new() -> Result<Self> {
         let kds = KDS::new();
-        // Device options does not matter when only retrieving certs from it.
-        let cert_device = device::Device::default(is_hyperv);
-        SevSnp {
-            is_hyperv,
-            kds,
-            cert_device,
-        }
+        Ok(SevSnp { kds })
     }
 
     /// Generate Derived Key using the default settings.
@@ -52,8 +51,9 @@ impl SevSnp {
     /// - Ok: Derived Key as [u8;32]
     /// - Error: Problems with key generation
     pub fn get_derived_key(&self) -> Result<[u8; 32]> {
-        let generator = key::DerivedKeyGenerator::default(self.is_hyperv);
-        Ok(generator.get()?)
+        let device = Device::new()?;
+        let options = DerivedKeyOptions::default();
+        device.get_derived_key(&options)
     }
 
     /// Generate Derived Key, but specify custom options for the key generation.
@@ -62,88 +62,100 @@ impl SevSnp {
     /// Returns:
     /// - Ok: Derived Key as [u8;32]
     /// - Error: Problems with key generation
-    pub fn get_derived_key_with_options(
-        &self,
-        options: key::DerivedKeyOptions,
-    ) -> Result<[u8; 32]> {
-        let generator = key::DerivedKeyGenerator::new(options, self.is_hyperv);
-        Ok(generator.get()?)
+    pub fn get_derived_key_with_options(&self, options: &DerivedKeyOptions) -> Result<[u8; 32]> {
+        let device = Device::new()?;
+        device.get_derived_key(&options)
     }
 
     /// Get the attestation report using the default settings.
-    pub fn get_attestation_report(&self) -> Result<AttestationReport> {
-        let device = device::Device::default(self.is_hyperv);
-        device.get_attestation_report()
+    ///
+    /// Returns:
+    /// - A tuple containing the attestation report and the optional var data.
+    /// - The attestation report is a `AttestationReport` struct.
+    /// - The var data is an optional `Vec<u8>` containing the var data.
+    /// Var data is only available if the device resides on an Azure Confidential VM.
+    /// Var data provided by Azure can be used to verify the contents of the attestation report's report_data
+    pub fn get_attestation_report(&self) -> Result<(AttestationReport, Option<Vec<u8>>)> {
+        let device = Device::new()?;
+        let options = ReportOptions::default();
+        device.get_attestation_report(&options)
     }
 
     /// Get the attestation report, but specify custom options for the device.
     /// When in doubt, use the default `get_attestation_report()` instead of this.
     pub fn get_attestation_report_with_options(
         &self,
-        device_options: device::DeviceOptions,
-    ) -> Result<AttestationReport> {
-        let device = device::Device::new(device_options, self.is_hyperv);
-        device.get_attestation_report()
+        options: &ReportOptions,
+    ) -> Result<(AttestationReport, Option<Vec<u8>>)> {
+        let device = Device::new()?;
+        device.get_attestation_report(&options)
     }
 
-    /// Retieve certificates for the attestation report
-    pub fn get_certificates(
+    /// Retrieve certificates from the SevSnp device.
+    /// This will only work if executed on an SEV-SNP machine (specifically, the VM is enlightened to SEV-SNP extensions)
+    /// It will fail otherwise.
+    /// Please also make sure to get certificates from the same device that generated the attestation report.
+    /// Furthermore, if the signer is a VLEK, make sure to use this, as the KDS does not provide VLEK certs.
+    ///
+    /// # Returns:
+    /// - Ok: HashMap containing the DER certificates
+    /// - Error: Problems with certificate retrieval
+    /// The HashMap will contain the following keys:
+    /// - "ARK": AMD Root Key
+    /// - "ASK": AMD Signing Key
+    /// - One of "VCEK" or "VLEK": VCEK or VLEK certificate
+    pub fn get_certificates_from_device(&self) -> Result<HashMap<String, Vec<u8>>> {
+        let device = Device::new()?;
+        device.get_certificates_der()
+    }
+
+    /// Retrieve certificates from KDS.
+    /// This can be used outside of an SEV-SNP machine, but attestation report must be provided.
+    /// If the signer of the attestation report is a VLEK, the retrieved certs will NOT contain the VLEK cert.
+    /// This is because the VLEK cert is not available from KDS.
+    ///
+    /// # Returns:
+    /// /// - Ok: HashMap containing the DER certificates
+    /// - Error: Problems with certificate retrieval
+    /// The HashMap will contain the following keys:
+    /// - "ARK": AMD Root Key
+    /// - "ASK": AMD Signing Key
+    /// - "VCEK": VCEK certificate (only if the signer of the attestation report is VCEK)
+    pub fn get_certificates_from_kds(
         &self,
         report: &AttestationReport,
-        flow: &AttestationFlow,
-        vek_only: bool,
     ) -> Result<HashMap<String, Vec<u8>>> {
-        let signer_type = report.get_signer_type()?;
-        if signer_type == CertType::VLEK {
-            if flow != &AttestationFlow::Vlek {
-                return Err(crate::error::SevSnpError::Firmware(
-                    "VLEK Flow must be used for VLEK certs.".to_string(),
-                ));
-            }
-            // Retrieve VLEK cert from the cpu
-            let mut cert_map = self.cert_device.get_certificates_der()?;
-            if !vek_only {
-                let ca = self
-                    .kds
-                    .fetch_ca_der(&cpu::ProcType::Milan, CertType::VLEK)?;
-                cert_map.insert("ARK".to_string(), ca[1].clone());
-                cert_map.insert("ASK".to_string(), ca[0].clone());
-            }
-            return Ok(cert_map);
-        } else {
-            if flow == &AttestationFlow::Vlek {
-                return Err(crate::error::SevSnpError::Firmware(
-                    "VLEK Flow can only be used for VLEK certs!".to_string(),
-                ));
-            } else if flow == &AttestationFlow::Extended && self.is_hyperv {
-                return Err(crate::error::SevSnpError::Firmware(
-                    "Extended attestation flow cannot be used with Hyper-V!".to_string(),
-                ));
-            }
-            if flow == &AttestationFlow::Regular {
-                let mut cert_map = HashMap::<String, Vec<u8>>::new();
-                let processor_model = &cpu::ProcType::Milan;
-                let cert = self.kds.fetch_vcek_der(processor_model, report)?;
-                cert_map.insert("VCEK".to_string(), cert);
-                if !vek_only {
-                    let ca = self.kds.fetch_ca_der(processor_model, CertType::VCEK)?;
-                    cert_map.insert("ARK".to_string(), ca[1].clone());
-                    cert_map.insert("ASK".to_string(), ca[0].clone());
-                }
-                return Ok(cert_map);
-            }
-            let cert_map = self.cert_device.get_certificates_der()?;
+        let signer_type = report.get_signer_type()?; // VLEK or VCEK
+        let processor_model = report.get_cpu_codename()?;
+        if signer_type == &CertType::VLEK {
+            let ca = self.kds.fetch_ca_der(processor_model, CertType::VLEK)?;
+            let mut cert_map = HashMap::<String, Vec<u8>>::new();
+            cert_map.insert("ARK".to_string(), ca[1].clone());
+            cert_map.insert("ASK".to_string(), ca[0].clone());
             return Ok(cert_map);
         }
+        let ca = self.kds.fetch_ca_der(processor_model, CertType::VCEK)?;
+        let vcek = self.kds.fetch_vcek_der(processor_model, report)?;
+        let mut cert_map = HashMap::<String, Vec<u8>>::new();
+        cert_map.insert("ARK".to_string(), ca[1].clone());
+        cert_map.insert("ASK".to_string(), ca[0].clone());
+        cert_map.insert("VCEK".to_string(), vcek);
+        return Ok(cert_map);
     }
 
-    /// Verify the attestation report using the default settings.
-    pub fn verify_attestation_report(&self, report: &AttestationReport) -> Result<()> {
+    /// Verify the chain of trust for the attestation report using the default settings.
+    pub fn verify_attestation_report(
+        &self,
+        report: &AttestationReport,
+        vlek_cert_der: Option<Vec<u8>>,
+    ) -> Result<()> {
         let signer_type = report.get_signer_type()?;
-        if signer_type == CertType::VLEK {
-            return self.common_attestation_flow(report, &signer_type, &AttestationFlow::Vlek);
-        }
-        self.common_attestation_flow(report, &signer_type, &AttestationFlow::Regular)
+        self.common_attestation_flow(
+            report,
+            signer_type,
+            &AttestationFlow::Regular,
+            vlek_cert_der,
+        )
     }
 
     /// Verify the attestation report, but specify custom options for attestation flow.
@@ -152,9 +164,10 @@ impl SevSnp {
         &self,
         report: &AttestationReport,
         flow: &AttestationFlow,
+        vlek_cert_der: Option<Vec<u8>>,
     ) -> Result<()> {
         let signer_type = report.get_signer_type()?;
-        self.common_attestation_flow(report, &signer_type, flow)
+        self.common_attestation_flow(report, signer_type, flow, vlek_cert_der)
     }
 
     /// Common base for all attestation verification
@@ -163,78 +176,61 @@ impl SevSnp {
         report: &AttestationReport,
         signer_type: &CertType,
         flow: &AttestationFlow,
+        vlek_cert_der: Option<Vec<u8>>,
     ) -> Result<()> {
-        let processor_model = cpu::get_processor_codename()?;
-
-        if self.is_hyperv {
-            // When running on HyperV, only the regular attestation workflow is supported.
-            if flow != &AttestationFlow::Regular {
-                return Err(SevSnpError::Firmware(
-                    "Only Regular Attestation Flow is supported on Hyper-V!".to_string(),
-                ));
+        let processor_model = report.get_cpu_codename()?;
+        match flow {
+            AttestationFlow::Regular => {
+                self.regular_attestation_workflow(
+                    &report,
+                    signer_type,
+                    processor_model,
+                    vlek_cert_der,
+                )?;
             }
-            self.regular_attestation_workflow(&report, processor_model)?;
-        } else {
-            // Device options does not matter when only retrieving certs from it.
-            let device = device::Device::default(self.is_hyperv);
-            let cert_map = device.get_certificates()?;
-            match flow {
-                AttestationFlow::Regular => {
-                    if signer_type != &CertType::VCEK {
-                        return Err(SevSnpError::Firmware(
-                            "Regular attestation workflow can only be used if the report is signed with VCEK!".to_string(),
-                        ));
-                    }
-                    self.regular_attestation_workflow(&report, processor_model)?;
-                }
-                AttestationFlow::Extended => {
-                    if signer_type != &CertType::VCEK {
-                        return Err(SevSnpError::Firmware(
-                            "Extended attestation workflow can only be used if the report is signed with VCEK!".to_string(),
-                        ));
-                    }
-                    if !(cert_map.contains_key("VCEK")
-                        && cert_map.contains_key("ARK")
-                        && cert_map.contains_key("ASK"))
-                    {
-                        return Err(SevSnpError::Firmware(
-                            "Missing VCEK, ARK and ASK certs from host device to verify Attestation Report!".to_string())
-                        );
-                    }
-                    self.extended_attestation_workflow(&report, &cert_map)?;
-                }
-                AttestationFlow::Vlek => {
-                    if signer_type != &CertType::VLEK {
-                        return Err(SevSnpError::Firmware(
-                            "VLEK attestation workflow can only be used if the report is signed with VLEK!".to_string(),
-                        ));
-                    }
-                    if !cert_map.contains_key("VLEK") {
-                        return Err(SevSnpError::Firmware(
-                            "Missing VLEK cert from host device to verify Attestation Report!"
-                                .to_string(),
-                        ));
-                    }
-                    self.vlek_attestation_workflow(&report, &cert_map, processor_model)?;
-                }
+            AttestationFlow::Extended => {
+                // This verification method requires access to the hw device itself, and cannot be used in a remote attestation scenario.
+                let device = Device::new()?;
+                // Device options does not matter when only retrieving certs from it.
+                let cert_map = device.get_certificates()?;
+                self.extended_attestation_workflow(
+                    &report,
+                    signer_type,
+                    processor_model,
+                    &cert_map,
+                )?;
             }
         }
         Ok(())
     }
 
-    /// In the Extended Attestation workflow, all certificates used to verify the attestation report are
+    /// In the Extended Attestation workflow, the required certificates used to verify the attestation report are
     /// fetched from the AMD SEV-SNP machine's hw device.
     /// This means that this workflow cannot be run outside an AMD SEV-SNP machine.
+    /// Note that when the signer is a VLEK, only the VLEK certificate is available from the device.
+    /// So the ARK and ASK certificates need to be fetched from the AMD Key Distribution Service (KDS).
     fn extended_attestation_workflow(
         &self,
         report: &AttestationReport,
+        signer_type: &CertType,
+        processor_model: &cpu::ProcType,
         cert_map: &HashMap<String, Certificate>,
     ) -> Result<()> {
-        let cert_chain = CertificateChain::new(
-            cert_map.get("ARK").unwrap().clone(),
-            cert_map.get("ASK").unwrap().clone(),
-            cert_map.get("VCEK").unwrap().clone(),
-        );
+        let cert_chain = match signer_type {
+            CertType::VLEK => self
+                .kds
+                .fetch_vlek_cert_chain(processor_model, cert_map.get("VLEK").unwrap())?,
+            CertType::VCEK => CertificateChain::new(
+                cert_map.get("ARK").unwrap().clone(),
+                cert_map.get("ASK").unwrap().clone(),
+                cert_map.get("VCEK").unwrap().clone(),
+            ),
+            _ => {
+                return Err(SevSnpError::Firmware(
+                    "Invalid signer found for Extended Attestation Workflow!".to_string(),
+                ))
+            }
+        };
 
         let verifier = verifier::Verifier::new(&cert_chain, &report);
         verifier.verify()
@@ -242,30 +238,33 @@ impl SevSnp {
 
     /// In the Regular Attestation workflow, all certificates used to verify the attestation report are
     /// fetched from the AMD Key Distribution Service (KDS).
+    /// Note that when the signer is a VLEK, the VLEK certificate must be provided as it cannot be queried from the KDS.
+    /// Afterwhich, only the ARK and ASK are retrieved from the KDS.
     fn regular_attestation_workflow(
         &self,
         report: &AttestationReport,
+        signer_type: &CertType,
         processor_model: &cpu::ProcType,
+        vlek_cert_der: Option<Vec<u8>>,
     ) -> Result<()> {
-        let cert_chain = self.kds.fetch_vcek_cert_chain(processor_model, report)?;
-
-        let verifier = verifier::Verifier::new(&cert_chain, &report);
-        verifier.verify()
-    }
-
-    /// If only the VLEK certificate is available from the AMD SEV-SNP machine's hw device,
-    /// the CA (ARK and ASK) certificates need to be fetched from the AMD Key Distribution Service (KDS),
-    /// before we can verify the attestation report.
-    /// This workflow cannot be run outside an AMD SEV-SNP machine.
-    fn vlek_attestation_workflow(
-        &self,
-        report: &AttestationReport,
-        cert_map: &HashMap<String, Certificate>,
-        processor_model: &cpu::ProcType,
-    ) -> Result<()> {
-        let cert_chain = self
-            .kds
-            .fetch_vlek_cert_chain(processor_model, cert_map.get("VLEK").unwrap())?;
+        let cert_chain = match signer_type {
+            CertType::VLEK => {
+                if vlek_cert_der.is_none() {
+                    return Err(SevSnpError::Firmware(
+                        "VLEK cert must be provided for regular attestation workflow!".to_string(),
+                    ));
+                }
+                let vlek_cert = Certificate::from_der(&vlek_cert_der.unwrap())?;
+                self.kds
+                    .fetch_vlek_cert_chain(processor_model, &vlek_cert)?
+            }
+            CertType::VCEK => self.kds.fetch_vcek_cert_chain(processor_model, report)?,
+            _ => {
+                return Err(SevSnpError::Firmware(
+                    "Invalid signer found for Regular Attestation Workflow!".to_string(),
+                ))
+            }
+        };
 
         let verifier = verifier::Verifier::new(&cert_chain, &report);
         verifier.verify()
@@ -274,30 +273,27 @@ impl SevSnp {
 
 #[cfg(feature = "clib")]
 pub mod c {
-    use crate::device::DeviceOptions;
+    use crate::device::ReportOptions;
 
     use super::SevSnp;
-    use crate::utils::AttestationReportExt;
     use once_cell::sync::Lazy;
-    use sev::firmware::guest::AttestationReport;
-    use sev::firmware::host::CertType;
     use std::ptr::copy_nonoverlapping;
     use std::sync::Mutex;
-    use std::mem::size_of;
 
     static ATTESTATION_REPORT: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
     static VEK_CERT: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
-    const REPORT_LEN: usize = size_of::<AttestationReport>();
+    static VAR_DATA: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
     /// Use this function to generate the attestation report on Rust.
     /// Returns the size of the report, which you can use to malloc a buffer of suitable size
     /// before you call get_attestation_report_raw().
     #[no_mangle]
     pub extern "C" fn generate_attestation_report() -> usize {
-        let sev_snp = SevSnp::new();
-        let report = sev_snp.get_attestation_report().unwrap();
+        let sev_snp = SevSnp::new().unwrap();
+        let (report, var_data) = sev_snp.get_attestation_report().unwrap();
         let bytes = bincode::serialize(&report).unwrap();
-        let len = bytes.len();
+        let report_len = bytes.len();
+        let var_data_len = var_data.as_ref().map_or(0, |v| v.len());
         match ATTESTATION_REPORT.lock() {
             Ok(mut t) => {
                 *t = bytes;
@@ -306,7 +302,18 @@ pub mod c {
                 panic!("Error: {:?}", e);
             }
         }
-        len
+
+        if var_data_len > 0 {
+            match VAR_DATA.lock() {
+                Ok(mut t) => {
+                    *t = var_data.unwrap();
+                }
+                Err(e) => {
+                    panic!("Error: {:?}", e);
+                }
+            }
+        }
+        report_len
     }
 
     /// Use this function to generate the attestation report with options.
@@ -317,20 +324,21 @@ pub mod c {
         report_data: *mut u8,
         vmpl: u32,
     ) -> usize {
-        let sev_snp = SevSnp::new();
+        let sev_snp = SevSnp::new().unwrap();
         let mut rust_report_data: [u8; 64] = [0; 64];
         unsafe {
             copy_nonoverlapping(report_data, rust_report_data.as_mut_ptr(), 64);
         }
-        let device_options = DeviceOptions {
+        let options = ReportOptions {
             report_data: Some(rust_report_data),
             vmpl: Some(vmpl),
         };
-        let report = sev_snp
-            .get_attestation_report_with_options(device_options)
+        let (report, var_data) = sev_snp
+            .get_attestation_report_with_options(&options)
             .unwrap();
         let bytes = bincode::serialize(&report).unwrap();
-        let len = bytes.len();
+        let report_len = bytes.len();
+        let var_data_len = var_data.as_ref().map_or(0, |v| v.len());
         match ATTESTATION_REPORT.lock() {
             Ok(mut t) => {
                 *t = bytes;
@@ -339,7 +347,17 @@ pub mod c {
                 panic!("Error: {:?}", e);
             }
         }
-        len
+        if var_data_len > 0 {
+            match VAR_DATA.lock() {
+                Ok(mut t) => {
+                    *t = var_data.unwrap();
+                }
+                Err(e) => {
+                    panic!("Error: {:?}", e);
+                }
+            }
+        }
+        report_len
     }
 
     /// Ensure that generate_attestation_report() is called first to get the size of buf.
@@ -364,17 +382,9 @@ pub mod c {
     /// Use this function to generate the vek cert.
     /// Returns the size of the vek cert, which can be used to malloc a buffer of suitable size
     #[no_mangle]
-    pub extern "C" fn generate_vek_cert(c_report: *mut u8) -> usize {
-        let sev_snp = SevSnp::new();
-        let report_raw = unsafe { std::slice::from_raw_parts(c_report, REPORT_LEN) };
-        let report: AttestationReport = bincode::deserialize_from(report_raw).unwrap();
-        let signer_type = report.get_signer_type().unwrap();
-        let flow = if signer_type == CertType::VLEK {
-            &crate::AttestationFlow::Vlek
-        } else {
-            &crate::AttestationFlow::Regular
-        };
-        let cert_map = sev_snp.get_certificates(&report, flow, true).unwrap();
+    pub extern "C" fn generate_vek_cert() -> usize {
+        let sev_snp = SevSnp::new().unwrap();
+        let cert_map = sev_snp.get_certificates_from_device().unwrap();
         let vek_cert = if cert_map.contains_key("VLEK") {
             cert_map.get("VLEK").unwrap()
         } else {
@@ -405,6 +415,52 @@ pub mod c {
         if bytes.len() == 0 {
             panic!("Error: No VEK cert found! Please call generate_vek_cert() first.");
         }
+
+        unsafe {
+            copy_nonoverlapping(bytes.as_ptr(), buf, bytes.len());
+        }
+    }
+
+    /// Retrieve the length of var_data. Please call this only after you have called
+    /// generate_attestation_report(). If var_data is empty, this function will return 0.
+    #[no_mangle]
+    pub extern "C" fn get_var_data_len() -> usize {
+        let length = match VAR_DATA.lock() {
+            Ok(t) => t.len(),
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        };
+        length
+    }
+
+    /// Retrieve var_data. Please call this only after you have called
+    /// get_var_data_len() to malloc a buffer of an appropriate size.
+    #[no_mangle]
+    pub extern "C" fn get_var_data(buf: *mut u8) {
+        let bytes = match VAR_DATA.lock() {
+            Ok(t) => t.clone(),
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        };
+        if bytes.len() == 0 {
+            panic!("Error: No var data found! Please call generate_attestation_report() first.");
+        }
+
+        unsafe {
+            copy_nonoverlapping(bytes.as_ptr(), buf, bytes.len());
+        }
+    }
+
+    /// Use this function to retrieve the report ID from an attestation report.
+    /// The report ID is generated by the firmware and persists with the guest instance throughout its lifetime.
+    /// The buffer should be of size 32 bytes exactly.
+    #[no_mangle]
+    pub extern "C" fn get_report_id(buf: *mut u8) {
+        let sev_snp = SevSnp::new().unwrap();
+        let (report, var_data) = sev_snp.get_attestation_report().unwrap();
+        let bytes = report.report_id;
 
         unsafe {
             copy_nonoverlapping(bytes.as_ptr(), buf, bytes.len());
