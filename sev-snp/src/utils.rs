@@ -1,80 +1,8 @@
-use crate::error::Result;
+use crate::{cpu::ProcType, error::Result};
 use rand::RngCore;
 use sev::firmware::guest::AttestationReport;
 use sev::firmware::host::CertType;
-use std::arch::x86_64::__cpuid;
 use std::{fs::File, fs::OpenOptions, io::Write, path::PathBuf};
-
-// https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery
-const CPUID_GET_HIGHEST_FUNCTION: u32 = 0x80000000;
-const CPUID_PROCESSOR_INFO_AND_FEATURE_BITS: u32 = 0x1;
-
-const CPUID_FEATURE_HYPERVISOR: u32 = 1 << 31;
-
-const CPUID_HYPERV_SIG: &str = "Microsoft Hv";
-const CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS: u32 = 0x40000000;
-const CPUID_HYPERV_FEATURES: u32 = 0x40000003;
-const CPUID_HYPERV_MIN: u32 = 0x40000005;
-const CPUID_HYPERV_MAX: u32 = 0x4000ffff;
-const CPUID_HYPERV_ISOLATION: u32 = 1 << 22;
-const CPUID_HYPERV_CPU_MANAGEMENT: u32 = 1 << 12;
-const CPUID_HYPERV_ISOLATION_CONFIG: u32 = 0x4000000C;
-const CPUID_HYPERV_ISOLATION_TYPE_MASK: u32 = 0xf;
-const CPUID_HYPERV_ISOLATION_TYPE_SNP: u32 = 2;
-
-/// Struct to hold utilities related to HyperV
-pub struct HyperV;
-
-impl HyperV {
-    /// Checks whether the VM is running on top of HyperV hypervisor
-    ///
-    /// Returns:
-    /// - true if VM is running on top of HyperV, false otherwise.
-    pub fn present() -> bool {
-        let mut cpuid = unsafe { __cpuid(CPUID_PROCESSOR_INFO_AND_FEATURE_BITS) };
-        if (cpuid.ecx & CPUID_FEATURE_HYPERVISOR) == 0 {
-            return false;
-        }
-
-        cpuid = unsafe { __cpuid(CPUID_GET_HIGHEST_FUNCTION) };
-        if cpuid.eax < CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS {
-            return false;
-        }
-
-        cpuid = unsafe { __cpuid(CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS) };
-        if cpuid.eax < CPUID_HYPERV_MIN || cpuid.eax > CPUID_HYPERV_MAX {
-            return false;
-        }
-
-        let mut sig: Vec<u8> = vec![];
-        sig.append(&mut cpuid.ebx.to_le_bytes().to_vec());
-        sig.append(&mut cpuid.ecx.to_le_bytes().to_vec());
-        sig.append(&mut cpuid.edx.to_le_bytes().to_vec());
-
-        if sig != CPUID_HYPERV_SIG.as_bytes() {
-            return false;
-        }
-
-        cpuid = unsafe { __cpuid(CPUID_HYPERV_FEATURES) };
-
-        let isolated: bool = (cpuid.ebx & CPUID_HYPERV_ISOLATION) != 0;
-        let managed: bool = (cpuid.ebx & CPUID_HYPERV_CPU_MANAGEMENT) != 0;
-
-        if !isolated || managed {
-            return false;
-        }
-
-        cpuid = unsafe { __cpuid(CPUID_HYPERV_ISOLATION_CONFIG) };
-        let mask = cpuid.ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK;
-        let snp = CPUID_HYPERV_ISOLATION_TYPE_SNP;
-
-        if mask != snp {
-            return false;
-        }
-
-        true
-    }
-}
 
 /// Generates 64 bytes of random data
 /// Always guaranted to return something (ie, unwrap() can be safely called)
@@ -103,23 +31,60 @@ impl CertTypeExt for CertType {
     }
 }
 
+/// TODO: update this trait once SEV crate updates with the new fields.
+/// From preliminary preview, it looks like there are major changes to accomodate
+/// report V2 and V3 formats.
 pub trait AttestationReportExt {
-    fn get_signer_type(&self) -> Result<CertType>;
+    /// Returns the Signing Key type used for this report.
+    /// 0: VCEK
+    /// 1: VLEK
+    /// 2-6: RESERVED
+    /// 7: None
+    fn get_signer_type(&self) -> Result<&CertType>;
+    /// Returns the cpu codename of the CPU used in the report.
+    fn get_cpu_codename(&self) -> Result<&ProcType>;
 }
 
 impl AttestationReportExt for AttestationReport {
-    fn get_signer_type(&self) -> Result<CertType> {
+    fn get_signer_type(&self) -> Result<&CertType> {
         let encoded: Vec<u8> = bincode::serialize(&self)?;
         let bits = encoded[0x48];
         let signer_type = bits & 0b11100;
         if signer_type == 0b000 {
-            return Ok(CertType::VCEK);
+            return Ok(&CertType::VCEK);
         } else if signer_type == 0b100 {
-            return Ok(CertType::VLEK);
+            return Ok(&CertType::VLEK);
         }
         Err(crate::error::SevSnpError::Bincode(
             "Unknown Signer for attestation report!".to_string(),
         ))
+    }
+
+    fn get_cpu_codename(&self) -> Result<&ProcType> {
+        // Notes: Report version must be 3 or above to have these previously reserved fields populated.
+        // Offsets:
+        // 0x188: CPUID_FAM_ID : Family ID (Combined Extended Family ID and Family ID)
+        // 0x189: CPUID_MOD_ID : Model (combined Extended Model and Model fields)
+        // 0x18A: CPUID_STEP : Stepping
+        let encoded: Vec<u8> = bincode::serialize(&self)?;
+        if self.version >= 3 {
+            let fam_id = encoded[0x188];
+            let mod_id = encoded[0x189];
+            let stepping = encoded[0x18A];
+            // 25: Zen 3, Zen 3+, Zen 4
+            // Milan: Zen 3, Genoa: Zen 4, Bergamo: Zen 4c
+            // Siena: Zen 4c, Turin: Zen 5, Venice: TBD.
+            if fam_id == 25 && mod_id == 1 {
+                return Ok(&ProcType::Milan);
+            }
+            // TODO: fill up more code types as it becomes available.
+            println!(
+                "Family: {}, Mod_id: {}, Stepping: {}",
+                fam_id, mod_id, stepping
+            );
+        }
+        // For Report Version 2, assume Milan for now.
+        Ok(&ProcType::Milan)
     }
 }
 

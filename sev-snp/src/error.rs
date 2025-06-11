@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use sev::error::UserApiError;
+use coco_provider::error::CocoError;
+use sev::error::{CertError, UserApiError};
 use x509_parser::error::X509Error;
 
 pub type Result<T> = std::result::Result<T, SevSnpError>;
@@ -31,12 +32,6 @@ impl std::error::Error for SevSnpError {}
 impl From<Box<bincode::ErrorKind>> for SevSnpError {
     fn from(err: Box<bincode::ErrorKind>) -> Self {
         SevSnpError::Bincode(format!("{err}"))
-    }
-}
-
-impl From<tss_esapi::Error> for SevSnpError {
-    fn from(err: tss_esapi::Error) -> Self {
-        SevSnpError::Tpm(format!("{err}"))
     }
 }
 
@@ -73,5 +68,23 @@ impl From<x509_parser::nom::Err<X509Error>> for SevSnpError {
 impl From<ureq::Error> for SevSnpError {
     fn from(err: ureq::Error) -> Self {
         SevSnpError::Http(format!("{err}"))
+    }
+}
+
+impl From<&str> for SevSnpError {
+    fn from(err: &str) -> Self {
+        SevSnpError::Firmware(err.to_string())
+    }
+}
+
+impl From<CocoError> for SevSnpError {
+    fn from(err: CocoError) -> Self {
+        SevSnpError::Firmware(format!("{:?}", err))
+    }
+}
+
+impl From<CertError> for SevSnpError {
+    fn from(err: CertError) -> Self {
+        SevSnpError::X509(format!("{:?}", err))
     }
 }
