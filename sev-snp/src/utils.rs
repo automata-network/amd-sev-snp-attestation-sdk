@@ -67,7 +67,7 @@ impl AttestationReportExt for AttestationReport {
         // 0x189: CPUID_MOD_ID : Model (combined Extended Model and Model fields)
         // 0x18A: CPUID_STEP : Stepping
         let encoded: Vec<u8> = bincode::serialize(&self)?;
-        if self.version == 3 {
+        if self.version >= 3 {
             let fam_id = encoded[0x188];
             let mod_id = encoded[0x189];
             let stepping = encoded[0x18A];
