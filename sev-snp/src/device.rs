@@ -2,7 +2,9 @@ use crate::error::Result;
 use crate::utils::generate_random_data;
 use crate::utils::CertTypeExt;
 use crate::SevSnpError;
+#[cfg(feature = "configfs")]
 use coco_provider::coco::configfs::ConfigFs;
+#[cfg(feature = "legacy")]
 use coco_provider::coco::legacy::Legacy;
 use sev::certs::snp::Certificate;
 use sev::firmware::guest::AttestationReport;
@@ -176,31 +178,38 @@ impl Device {
     }
 
     /// Generate the Derived Key
-    pub fn get_derived_key(&self, options: &DerivedKeyOptions) -> Result<[u8; 32]> {
-        if self.provider.legacy_device.is_some() {
-            let dev = self.provider.legacy_device.unwrap();
+    pub fn get_derived_key(&self, _options: &DerivedKeyOptions) -> Result<[u8; 32]> {
+        #[cfg(feature = "legacy")]
+        {
+            if self.provider.legacy_device.is_some() {
+                let dev = self.provider.legacy_device.unwrap();
 
-            let root_key_sel = match options.root_key_type.as_ref().unwrap_or(&RootKeyType::VCEK) {
-                RootKeyType::VCEK => false,
-                RootKeyType::VMRK => true,
-            };
-            let vmpl = options.vmpl.unwrap_or(0);
-            let guest_field_sel: u64 = match options.guest_field_sel.as_ref() {
-                Some(val) => u64::from_str_radix(&val, 2).unwrap(),
-                None => 0,
-            };
-            let guest_svn = options.guest_svn.unwrap_or(0);
-            let tcb_version = options.tcb_version.unwrap_or(0);
+                let root_key_sel = match _options
+                    .root_key_type
+                    .as_ref()
+                    .unwrap_or(&RootKeyType::VCEK)
+                {
+                    RootKeyType::VCEK => false,
+                    RootKeyType::VMRK => true,
+                };
+                let vmpl = _options.vmpl.unwrap_or(0);
+                let guest_field_sel: u64 = match _options.guest_field_sel.as_ref() {
+                    Some(val) => u64::from_str_radix(&val, 2).unwrap(),
+                    None => 0,
+                };
+                let guest_svn = _options.guest_svn.unwrap_or(0);
+                let tcb_version = _options.tcb_version.unwrap_or(0);
 
-            self.verify_key_options(vmpl, guest_field_sel)?;
+                self.verify_key_options(vmpl, guest_field_sel)?;
 
-            return Ok(dev.get_derived_key(
-                root_key_sel,
-                vmpl,
-                guest_field_sel,
-                guest_svn,
-                tcb_version,
-            )?);
+                return Ok(dev.get_derived_key(
+                    root_key_sel,
+                    vmpl,
+                    guest_field_sel,
+                    guest_svn,
+                    tcb_version,
+                )?);
+            }
         }
         Err(SevSnpError::Firmware(format!(
             "Retrieving derived key from Device Type {:?} is not supported!",
@@ -212,6 +221,7 @@ impl Device {
         self.provider.device_type
     }
 
+    #[cfg(feature = "legacy")]
     fn verify_key_options(&self, vmpl: u32, guest_field_sel: u64) -> Result<()> {
         if vmpl > 3 {
             return Err(SevSnpError::ConfigOptions(format!(
@@ -230,29 +240,36 @@ impl Device {
 
     fn get_certificates_raw(&self) -> Result<Vec<CertTableEntry>> {
         if self.provider.device_type == CocoDeviceType::Legacy {
-            let dev = self
-                .provider
-                .device
-                .as_any()
-                .downcast_ref::<Legacy>()
-                .unwrap();
+            #[cfg(feature = "legacy")]
+            {
+                let dev = self
+                    .provider
+                    .device
+                    .as_any()
+                    .downcast_ref::<Legacy>()
+                    .unwrap();
 
-            return Ok(dev.get_certificates()?);
+                return Ok(dev.get_certificates()?);
+            }
         } else if self.provider.device_type == CocoDeviceType::ConfigFs {
-            let dev = self
-                .provider
-                .device
-                .as_any()
-                .downcast_ref::<ConfigFs>()
-                .unwrap();
-            let mut certs_bytes = dev.get_certificates()?;
-            // certs from configfs auxblob follows the SEV specification in Section 4.1.8.1 MSG_REPORT_REQ
-            // ref: https://www.kernel.org/doc/Documentation/ABI/testing/configfs-tsm
-            let certs = CertTableEntry::vec_bytes_to_cert_table(certs_bytes.as_mut_slice())?;
-            return Ok(certs);
+            #[cfg(feature = "configfs")]
+            {
+                let dev = self
+                    .provider
+                    .device
+                    .as_any()
+                    .downcast_ref::<ConfigFs>()
+                    .unwrap();
+                let mut certs_bytes = dev.get_certificates()?;
+                // certs from configfs auxblob follows the SEV specification in Section 4.1.8.1 MSG_REPORT_REQ
+                // ref: https://www.kernel.org/doc/Documentation/ABI/testing/configfs-tsm
+                let certs = CertTableEntry::vec_bytes_to_cert_table(certs_bytes.as_mut_slice())?;
+                return Ok(certs);
+            }
         }
         Err(SevSnpError::Firmware(format!(
-            "Unable to get certs from Device Type {:?}",
+            "Unable to get certs from Device Type {:?}. \
+            Please ensure legacy or configfs feature is enabled and the device type is correct.",
             self.provider.device_type
         )))
     }

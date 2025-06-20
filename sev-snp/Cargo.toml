@@ -1,6 +1,6 @@
 [package]
 name = "sev-snp"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Automata AMD SEV-SNP library"
 readme = "README.md"
@@ -16,6 +16,7 @@ legacy = ["dep:coco-provider", "coco-provider/legacy"]
 configfs = ["dep:coco-provider", "coco-provider/legacy", "coco-provider/configfs"]
 tpm = ["dep:coco-provider", "coco-provider/tpm"]
 clib = ["dep:once_cell", "dep:coco-provider", "coco-provider/legacy", "coco-provider/configfs", "coco-provider/tpm"]
+coco-provider = ["dep:coco-provider"]
 
 [build-dependencies]
 cbindgen = "0.28.0"
