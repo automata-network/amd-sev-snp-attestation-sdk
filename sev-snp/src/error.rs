@@ -23,7 +23,19 @@ pub enum SevSnpError {
 
 impl Display for SevSnpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            SevSnpError::Bincode(msg) => write!(f, "Bincode: {}", msg),
+            SevSnpError::ConfigOptions(msg) => write!(f, "ConfigOptions: {}", msg),
+            SevSnpError::Cpu(msg) => write!(f, "CPU: {}", msg),
+            SevSnpError::DerivedKey(msg) => write!(f, "DerivedKey: {}", msg),
+            SevSnpError::Firmware(msg) => write!(f, "Firmware: {}", msg),
+            SevSnpError::Http(msg) => write!(f, "HTTP: {}", msg),
+            SevSnpError::IO(msg) => write!(f, "IO: {}", msg),
+            SevSnpError::SSL(msg) => write!(f, "SSL: {}", msg),
+            SevSnpError::Tpm(msg) => write!(f, "TPM: {}", msg),
+            SevSnpError::X509(msg) => write!(f, "X509: {}", msg),
+            SevSnpError::Unknown => write!(f, "Unknown"),
+        }
     }
 }
 
