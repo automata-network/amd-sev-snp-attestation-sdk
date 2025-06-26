@@ -1,7 +1,7 @@
-use crate::{cpu::ProcType, error::Result};
+use crate::error::Result;
+use crate::report::AttestationReport;
+use coco_provider::coco::snp::types::CertType;
 use rand::RngCore;
-use sev::firmware::guest::AttestationReport;
-use sev::firmware::host::CertType;
 use std::{fs::File, fs::OpenOptions, io::Write, path::PathBuf};
 
 /// Generates 64 bytes of random data
@@ -28,63 +28,6 @@ impl CertTypeExt for CertType {
             CertType::OTHER(_) => "OTHER",
         }
         .to_string()
-    }
-}
-
-/// TODO: update this trait once SEV crate updates with the new fields.
-/// From preliminary preview, it looks like there are major changes to accomodate
-/// report V2 and V3 formats.
-pub trait AttestationReportExt {
-    /// Returns the Signing Key type used for this report.
-    /// 0: VCEK
-    /// 1: VLEK
-    /// 2-6: RESERVED
-    /// 7: None
-    fn get_signer_type(&self) -> Result<&CertType>;
-    /// Returns the cpu codename of the CPU used in the report.
-    fn get_cpu_codename(&self) -> Result<&ProcType>;
-}
-
-impl AttestationReportExt for AttestationReport {
-    fn get_signer_type(&self) -> Result<&CertType> {
-        let encoded: Vec<u8> = bincode::serialize(&self)?;
-        let bits = encoded[0x48];
-        let signer_type = bits & 0b11100;
-        if signer_type == 0b000 {
-            return Ok(&CertType::VCEK);
-        } else if signer_type == 0b100 {
-            return Ok(&CertType::VLEK);
-        }
-        Err(crate::error::SevSnpError::Bincode(
-            "Unknown Signer for attestation report!".to_string(),
-        ))
-    }
-
-    fn get_cpu_codename(&self) -> Result<&ProcType> {
-        // Notes: Report version must be 3 or above to have these previously reserved fields populated.
-        // Offsets:
-        // 0x188: CPUID_FAM_ID : Family ID (Combined Extended Family ID and Family ID)
-        // 0x189: CPUID_MOD_ID : Model (combined Extended Model and Model fields)
-        // 0x18A: CPUID_STEP : Stepping
-        let encoded: Vec<u8> = bincode::serialize(&self)?;
-        if self.version >= 3 {
-            let fam_id = encoded[0x188];
-            let mod_id = encoded[0x189];
-            let stepping = encoded[0x18A];
-            // 25: Zen 3, Zen 3+, Zen 4
-            // Milan: Zen 3, Genoa: Zen 4, Bergamo: Zen 4c
-            // Siena: Zen 4c, Turin: Zen 5, Venice: TBD.
-            if fam_id == 25 && mod_id == 1 {
-                return Ok(&ProcType::Milan);
-            }
-            // TODO: fill up more code types as it becomes available.
-            println!(
-                "Family: {}, Mod_id: {}, Stepping: {}",
-                fam_id, mod_id, stepping
-            );
-        }
-        // For Report Version 2, assume Milan for now.
-        Ok(&ProcType::Milan)
     }
 }
 

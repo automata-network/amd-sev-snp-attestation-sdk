@@ -6,17 +6,18 @@ mod verifier;
 
 pub mod device;
 pub mod error;
+pub mod report;
 
-use certs::CertificateChain;
+// Re-Export SNP CertType from coco_provider
+pub use coco_provider::coco::snp::types::CertType;
+
+use certs::{Certificate, CertificateChain};
 use device::{DerivedKeyOptions, Device, ReportOptions};
 use kds::KDS;
-use sev::certs::snp::Certificate;
-use sev::firmware::guest::AttestationReport;
-use sev::firmware::host::CertType;
+use report::AttestationReport;
 use std::collections::HashMap;
 
 use crate::error::{Result, SevSnpError};
-use crate::utils::AttestationReportExt;
 
 /// Indicate whether attestation verification should happen with
 /// certs retrieved from SEV-SNP device or KDS or custom.
@@ -125,7 +126,7 @@ impl SevSnp {
         &self,
         report: &AttestationReport,
     ) -> Result<HashMap<String, Vec<u8>>> {
-        let signer_type = report.get_signer_type()?; // VLEK or VCEK
+        let signer_type = report.signing_key_type()?; // VLEK or VCEK
         let processor_model = report.get_cpu_codename()?;
         if signer_type == &CertType::VLEK {
             let ca = self.kds.fetch_ca_der(processor_model, CertType::VLEK)?;
@@ -149,7 +150,7 @@ impl SevSnp {
         report: &AttestationReport,
         vlek_cert_der: Option<Vec<u8>>,
     ) -> Result<()> {
-        let signer_type = report.get_signer_type()?;
+        let signer_type = report.signing_key_type()?;
         self.common_attestation_flow(
             report,
             signer_type,
@@ -166,7 +167,7 @@ impl SevSnp {
         flow: &AttestationFlow,
         vlek_cert_der: Option<Vec<u8>>,
     ) -> Result<()> {
-        let signer_type = report.get_signer_type()?;
+        let signer_type = report.signing_key_type()?;
         self.common_attestation_flow(report, signer_type, flow, vlek_cert_der)
     }
 
