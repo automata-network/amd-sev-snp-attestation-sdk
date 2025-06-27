@@ -1,4 +1,6 @@
+use crate::certs::Certificate;
 use crate::error::Result;
+use crate::report::AttestationReport;
 use crate::utils::generate_random_data;
 use crate::utils::CertTypeExt;
 use crate::SevSnpError;
@@ -6,9 +8,7 @@ use crate::SevSnpError;
 use coco_provider::coco::configfs::ConfigFs;
 #[cfg(feature = "legacy")]
 use coco_provider::coco::legacy::Legacy;
-use sev::certs::snp::Certificate;
-use sev::firmware::guest::AttestationReport;
-use sev::firmware::host::CertTableEntry;
+use coco_provider::coco::snp::types::CertTableEntry;
 use std::collections::HashMap;
 
 use coco_provider::{

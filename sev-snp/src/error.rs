@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use coco_provider::error::CocoError;
-use sev::error::{CertError, UserApiError};
 use x509_parser::error::X509Error;
 
 pub type Result<T> = std::result::Result<T, SevSnpError>;
@@ -53,12 +52,6 @@ impl From<std::io::Error> for SevSnpError {
     }
 }
 
-impl From<UserApiError> for SevSnpError {
-    fn from(err: UserApiError) -> Self {
-        SevSnpError::Firmware(format!("{err}"))
-    }
-}
-
 impl From<openssl::error::ErrorStack> for SevSnpError {
     fn from(err: openssl::error::ErrorStack) -> Self {
         SevSnpError::SSL(format!("{err}"))
@@ -92,11 +85,5 @@ impl From<&str> for SevSnpError {
 impl From<CocoError> for SevSnpError {
     fn from(err: CocoError) -> Self {
         SevSnpError::Firmware(format!("{:?}", err))
-    }
-}
-
-impl From<CertError> for SevSnpError {
-    fn from(err: CertError) -> Self {
-        SevSnpError::X509(format!("{:?}", err))
     }
 }

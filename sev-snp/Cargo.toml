@@ -19,16 +19,16 @@ clib = ["dep:once_cell", "dep:coco-provider", "coco-provider/legacy", "coco-prov
 coco-provider = ["dep:coco-provider"]
 
 [build-dependencies]
-cbindgen = "0.28.0"
+cbindgen = "0.29.0"
 
 [profile.release]
 lto = true
 
 [dependencies]
 coco-provider = { git = "https://github.com/automata-network/coco-provider-sdk", optional = true, default-features = false }
-sev = { version = "5.0.0", default-features = false, features = ['openssl','snp']}
 openssl = { version = "^0.10", features = ["vendored"]}
 serde = { version = "1.0.217", features = ["derive"] }
+serde-big-array = "0.5.1"
 bincode = "^1.2.1"
 rand = "0.8.5"
 x509-parser = { version="0.16.0", features=["verify"] }
@@ -36,4 +36,5 @@ asn1-rs = "0.6.2"
 hex = "0.4"
 ureq = "2.12.1"
 sysinfo = "0.33.1"
+bitfield = "0.19.1"
 once_cell = { version = "1.20.2", optional=true }

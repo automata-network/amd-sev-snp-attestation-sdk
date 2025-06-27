@@ -1,13 +1,13 @@
 use asn1_rs::Oid;
+use coco_provider::coco::snp::types::CertType;
 use openssl::{ecdsa::EcdsaSig, sha::Sha384};
-use sev::certs::snp::{Certificate, Verifiable};
-use sev::firmware::{guest::AttestationReport, host::CertType};
 use x509_parser::{
     self, certificate::X509Certificate, prelude::FromDer, prelude::X509Extension, x509::X509Name,
 };
 
-use crate::certs::CertificateChain;
+use crate::certs::{Certificate, CertificateChain, Verifiable};
 use crate::error::{Result, SevSnpError};
+use crate::report::AttestationReport;
 
 pub mod snp_oid {
     use asn1_rs::{oid, Oid};

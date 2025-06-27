@@ -1,11 +1,11 @@
+use coco_provider::coco::snp::types::CertType;
 use openssl::x509::X509;
-use sev::firmware::host::CertType;
-use sev::{certs::snp::Certificate, firmware::guest::AttestationReport};
 use std::io::Read;
 
-use crate::certs::CertificateChain;
+use crate::certs::{Certificate, CertificateChain};
 use crate::cpu::ProcType;
 use crate::error::Result;
+use crate::report::AttestationReport;
 use crate::utils::CertTypeExt;
 /// Struct to represent the AMD Key Distribution Service.
 pub struct KDS {}
