@@ -35,7 +35,7 @@ pub fn verify_x509_chain(cert_chain: &[X509Certificate]) -> bool {
 }
 
 fn verify_cert_issuer(subject: &X509Certificate, issuer: Option<&X509Certificate>) -> bool {
-    // the issuer param can be ommited,
+    // the issuer param can be omitted,
     // if and only if it signs its own certificate, e.g. a root certificate
     let current_issuer: &X509Certificate;
     match issuer {
