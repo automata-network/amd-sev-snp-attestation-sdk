@@ -6,7 +6,7 @@ import {KDS} from "../src/KDS.sol";
 import "../src/SEVAgentAttestation.sol";
 
 contract Configure is Script {
-    uint256 privateKey = vm.envUint("PRIVATE_KEY");
+    // uint256 privateKey = vm.envUint("PRIVATE_KEY");
 
     function configureZk(uint8 zk, address verifierGateway, bytes32 programId) public {
         address attestationAddr = vm.envAddress("AMD_SEV_SNP_ATTESTATION_VERIFIER");
@@ -14,7 +14,7 @@ contract Configure is Script {
         ZkCoProcessorConfig memory config =
             ZkCoProcessorConfig({programIdentifier: programId, zkVerifier: verifierGateway});
 
-        vm.broadcast(privateKey);
+        vm.broadcast();
         SEVAgentAttestation(attestationAddr).setZkConfiguration(ZkCoProcessorType(zk), config);
     }
 }
