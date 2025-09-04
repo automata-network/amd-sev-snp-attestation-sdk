@@ -79,7 +79,10 @@ interface ISnpAttestation {
     function revokeCertCache(bytes32 _certHash) external;
     function setRootCert(ProcessorType _processorModel, bytes32 _rootCert) external;
     function setZkConfiguration(ZkCoProcessorType zkCoProcessor, ZkCoProcessorConfig memory config) external;
-    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata _reportCerts) external view returns (uint8[] memory);
+    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata _reportCerts)
+        external
+        view
+        returns (uint8[] memory);
 
     function verifyAndAttestWithZKProof(
         bytes calldata output,

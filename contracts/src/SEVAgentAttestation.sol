@@ -91,7 +91,12 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         return _zkConfig[zkCoProcessorType].zkVerifier;
     }
 
-    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata reportCerts) external view override returns (uint8[] memory) {
+    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata reportCerts)
+        external
+        view
+        override
+        returns (uint8[] memory)
+    {
         return _checkTrustedIntermediateCerts(processorModels, reportCerts);
     }
 

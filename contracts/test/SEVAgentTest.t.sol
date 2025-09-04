@@ -24,10 +24,7 @@ contract SEVAgentTest is TestSetup {
 
         attestation = new SEVAgentAttestation(100000, new bytes32[](0));
 
-        bytes memory ark = vm.readFileBinary(string.concat(
-            vm.projectRoot(),
-            "/test/assets/ark-milan.der"
-        ));
+        bytes memory ark = vm.readFileBinary(string.concat(vm.projectRoot(), "/test/assets/ark-milan.der"));
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
 
         ZkCoProcessorConfig memory riscZeroConfig =
@@ -46,7 +43,8 @@ contract SEVAgentTest is TestSetup {
         bytes memory riscZeroProof =
             hex"bb001d442297359628f85fda105bb2c1f4d8a92c65de3c6909b4aef69fc4014f652280f226c2ca7c60999f211c5340cbe917c75d77e03972ed808460bb4b412bd9cdb93e13db1001c629cbe10a9ff4ebc63426f6d765f6f928e6fc10cc9c419f427ea2ae2b929183331e83cd11d9bd8eb43b6fce2b6611cdc3f54af01cfde4ee59c05bf808edf3c88a1eabb3bf165a9d80e632c47b0b67f086a039174c693598e426247915d735a6f5dadf218977c8765175325245713e0bf9b1ffa29a9077dc68d6c0b50f00bfb56b58074abd14efcd87d6f29e6a3f6e92a274054a36e7cebe3181e2e315e60a4067a26e38723e5ceeab3b7d6556a6bbec124385da45f9e95f39052ccc";
 
-        VerifierJournal memory riscZeroZkOutput = attestation.verifyAndAttestWithZKProof(riscZeroOutput, ZkCoProcessorType.RiscZero, riscZeroProof);
+        VerifierJournal memory riscZeroZkOutput =
+            attestation.verifyAndAttestWithZKProof(riscZeroOutput, ZkCoProcessorType.RiscZero, riscZeroProof);
 
         assertEq(uint8(riscZeroZkOutput.result), uint8(VerificationResult.Success));
         assertEq(riscZeroZkOutput.processorModel, uint8(ProcessorType.Milan));

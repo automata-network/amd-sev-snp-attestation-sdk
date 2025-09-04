@@ -80,10 +80,13 @@ abstract contract CertCacheBase {
      * helping to optimize the proving process by determining trusted certificate lengths.
      * Usually called from off-chain
      */
-    function _checkTrustedIntermediateCerts(ProcessorType[] calldata _processorModels, bytes32[][] calldata _reportCerts) internal view returns (uint8[] memory) {
+    function _checkTrustedIntermediateCerts(
+        ProcessorType[] calldata _processorModels,
+        bytes32[][] calldata _reportCerts
+    ) internal view returns (uint8[] memory) {
         require(_reportCerts.length == _processorModels.length, "Array length mismatch");
         uint8[] memory results = new uint8[](_reportCerts.length);
-        
+
         for (uint256 i = 0; i < _reportCerts.length; i++) {
             bytes32[] calldata certs = _reportCerts[i];
             bytes32 expectedRootCert = _rootCerts[_processorModels[i]];
@@ -91,12 +94,12 @@ abstract contract CertCacheBase {
             if (expectedRootCert == bytes32(0)) {
                 revert("Root certificate not set for this processor model");
             }
-            
+
             uint8 trustedCertPrefixLen = 1;
             if (certs[0] != expectedRootCert) {
                 revert("First certificate must be the root certificate for the specified processor model");
             }
-            
+
             for (uint256 j = 1; j < certs.length; j++) {
                 if (!trustedIntermediateCerts[certs[j]]) {
                     break;
