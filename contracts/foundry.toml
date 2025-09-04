@@ -14,4 +14,8 @@ remappings = [
     "@sp1-contracts/=lib/sp1-contracts/contracts/src/"
 ]
 
-fs_permissions = [{ access = "read", path = "../samples"}, { access = "readwrite", path = "deployments" }]
+fs_permissions = [
+    { access = "read", path = "../samples"},
+    { access = "readwrite", path = "deployments" },
+    { access = "read", path = "test" }
+]
