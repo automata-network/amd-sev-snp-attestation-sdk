@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import {ProcessorType} from "../types/SevSnpTypes.sol";
+
 struct VerifierInput {
     uint64 timestamp;
     uint8 trustedCertsPrefixLen;
@@ -73,11 +75,11 @@ interface ISnpAttestation {
      */
     function maxTimeDiff() external view returns (uint64);
 
-    function rootCert() external view returns (bytes32);
+    function rootCerts(ProcessorType processorModel) external view returns (bytes32);
     function revokeCertCache(bytes32 _certHash) external;
-    function setRootCert(bytes32 _rootCert) external;
+    function setRootCert(ProcessorType _processorModel, bytes32 _rootCert) external;
     function setZkConfiguration(ZkCoProcessorType zkCoProcessor, ZkCoProcessorConfig memory config) external;
-    function checkTrustedIntermediateCerts(bytes32[][] calldata _reportCerts) external view returns (uint8[] memory);
+    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata _reportCerts) external view returns (uint8[] memory);
 
     function verifyAndAttestWithZKProof(
         bytes calldata output,

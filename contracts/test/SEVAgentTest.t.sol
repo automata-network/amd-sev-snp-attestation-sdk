@@ -3,7 +3,8 @@ pragma solidity ^0.8.13;
 
 import "./TestSetup.sol";
 import "../src/SEVAgentAttestation.sol";
-import {VerifierJournal, VerificationResult} from "../src/interfaces/ISnpAttestation.sol";
+import "../src/types/SevSnpTypes.sol";
+import "../src/interfaces/ISnpAttestation.sol";
 
 contract SEVAgentTest is TestSetup {
     address internal constant admin = address(1);
@@ -25,9 +26,9 @@ contract SEVAgentTest is TestSetup {
 
         bytes memory ark = vm.readFileBinary(string.concat(
             vm.projectRoot(),
-            "/test/assets/ark.der"
+            "/test/assets/ark-milan.der"
         ));
-        attestation.setRootCert(sha256(ark));
+        attestation.setRootCert(ProcessorType.Milan, sha256(ark));
 
         ZkCoProcessorConfig memory riscZeroConfig =
             ZkCoProcessorConfig({programIdentifier: SEV_IMAGE_RISCZERO_ID, zkVerifier: address(riscZeroVerifier)});
@@ -48,5 +49,6 @@ contract SEVAgentTest is TestSetup {
         VerifierJournal memory riscZeroZkOutput = attestation.verifyAndAttestWithZKProof(riscZeroOutput, ZkCoProcessorType.RiscZero, riscZeroProof);
 
         assertEq(uint8(riscZeroZkOutput.result), uint8(VerificationResult.Success));
+        assertEq(riscZeroZkOutput.processorModel, uint8(ProcessorType.Milan));
     }
 }

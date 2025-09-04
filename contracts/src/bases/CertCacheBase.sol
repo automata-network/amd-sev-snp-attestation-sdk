@@ -1,12 +1,14 @@
 //SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import {ProcessorType} from "../types/SevSnpTypes.sol";
+
 abstract contract CertCacheBase {
     /// @dev Mapping of trusted intermediate certificate hashes (excludes root certificate)
     mapping(bytes32 trustedCertHash => bool) public trustedIntermediateCerts;
 
-    /// @dev Hash of the trusted ARK certificate
-    bytes32 public rootCert;
+    /// @dev Mapping of processor models to their trusted ARK certificate hashes
+    mapping(ProcessorType => bytes32) internal _rootCerts;
 
     function _initializeTrustedCerts(bytes32[] memory initializeTrustedCerts) internal {
         for (uint256 i = 0; i < initializeTrustedCerts.length; i++) {
@@ -15,17 +17,18 @@ abstract contract CertCacheBase {
     }
 
     /**
-     * @dev Sets the trusted root certificate hash
-     * @param _rootCert Hash of the AWS Nitro Enclave root certificate
+     * @dev Sets the trusted root certificate hash for a specific processor model
+     * @param _processorModel The processor model (ProcessorType enum cast to uint8)
+     * @param _rootCert Hash of the ARK certificate for this processor model
      *
      * Requirements:
      * - Only callable by contract owner
      *
      * The root certificate serves as the trust anchor for all certificate chain validations.
-     * This should be set to the hash of AWS's root certificate for Nitro Enclaves.
+     * Different AMD SEV-SNP processors use certificates issued from different root certificates.
      */
-    function _setRootCert(bytes32 _rootCert) internal {
-        rootCert = _rootCert;
+    function _setRootCert(ProcessorType _processorModel, bytes32 _rootCert) internal {
+        _rootCerts[_processorModel] = _rootCert;
     }
 
     /**
@@ -64,11 +67,12 @@ abstract contract CertCacheBase {
 
     /**
      * @dev Checks the prefix length of trusted certificates in each provided certificate chain for reports
+     * @param _processorModels Array of processor models corresponding to each certificate chain
      * @param _reportCerts Array of certificate chains, each containing certificate hashes
      * @return Array indicating the prefix length of trusted certificates in each chain
      *
      * For each certificate chain:
-     * 1. Validates that the first certificate matches the stored root certificate
+     * 1. Validates that the first certificate matches the stored root certificate for the processor model
      * 2. Counts consecutive trusted certificates starting from the root
      * 3. Stops counting when an untrusted certificate is encountered
      *
@@ -76,15 +80,23 @@ abstract contract CertCacheBase {
      * helping to optimize the proving process by determining trusted certificate lengths.
      * Usually called from off-chain
      */
-    function _checkTrustedIntermediateCerts(bytes32[][] calldata _reportCerts) internal view returns (uint8[] memory) {
+    function _checkTrustedIntermediateCerts(ProcessorType[] calldata _processorModels, bytes32[][] calldata _reportCerts) internal view returns (uint8[] memory) {
+        require(_reportCerts.length == _processorModels.length, "Array length mismatch");
         uint8[] memory results = new uint8[](_reportCerts.length);
-        bytes32 rootCertHash = rootCert;
+        
         for (uint256 i = 0; i < _reportCerts.length; i++) {
             bytes32[] calldata certs = _reportCerts[i];
-            uint8 trustedCertPrefixLen = 1;
-            if (certs[0] != rootCertHash) {
-                revert("First certificate must be the root certificate");
+            bytes32 expectedRootCert = _rootCerts[_processorModels[i]];
+
+            if (expectedRootCert == bytes32(0)) {
+                revert("Root certificate not set for this processor model");
             }
+            
+            uint8 trustedCertPrefixLen = 1;
+            if (certs[0] != expectedRootCert) {
+                revert("First certificate must be the root certificate for the specified processor model");
+            }
+            
             for (uint256 j = 1; j < certs.length; j++) {
                 if (!trustedIntermediateCerts[certs[j]]) {
                     break;

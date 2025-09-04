@@ -16,7 +16,9 @@ import {
 import {CertCacheBase} from "./bases/CertCacheBase.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
-contract SEVAgentAttestation is Ownable, CertCacheBase {
+import {ProcessorType} from "./types/SevSnpTypes.sol";
+
+contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     mapping(ZkCoProcessorType => ZkCoProcessorConfig) _zkConfig;
 
     /// @dev Maximum allowed time difference in seconds for attestation timestamp validation
@@ -26,6 +28,10 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
         maxTimeDiff = _maxTimeDiff;
         _initializeTrustedCerts(initializeTrustedCerts);
         _initializeOwner(msg.sender);
+    }
+
+    function rootCerts(ProcessorType processorModel) external view override returns (bytes32) {
+        return _rootCerts[processorModel];
     }
 
     /**
@@ -39,12 +45,13 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
      * This function allows the owner to revoke compromised intermediate certificates
      * without affecting the root certificate or other trusted certificates.
      */
-    function revokeCertCache(bytes32 _certHash) external onlyOwner {
+    function revokeCertCache(bytes32 _certHash) external override onlyOwner {
         _revokeCertCache(_certHash);
     }
 
     /**
      * @dev Sets the trusted root certificate hash
+     * @param _processorModel Specify the Processor Model for the Root Certificate (ARK)
      * @param _rootCert Hash of the AWS Nitro Enclave root certificate
      *
      * Requirements:
@@ -53,8 +60,8 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
      * The root certificate serves as the trust anchor for all certificate chain validations.
      * This should be set to the hash of AWS's root certificate for Nitro Enclaves.
      */
-    function setRootCert(bytes32 _rootCert) external onlyOwner {
-        _setRootCert(_rootCert);
+    function setRootCert(ProcessorType _processorModel, bytes32 _rootCert) external override onlyOwner {
+        _setRootCert(_processorModel, _rootCert);
     }
 
     /**
@@ -62,6 +69,7 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
      */
     function setZkConfiguration(ZkCoProcessorType zkCoProcessor, ZkCoProcessorConfig memory config)
         external
+        override
         onlyOwner
     {
         _zkConfig[zkCoProcessor] = config;
@@ -72,19 +80,19 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
      * @return this is either the IMAGE_ID for RiscZero Guest Program or
      * Succiinct Program Verifying Key
      */
-    function programIdentifier(ZkCoProcessorType zkCoProcessorType) external view returns (bytes32) {
+    function programIdentifier(ZkCoProcessorType zkCoProcessorType) external view override returns (bytes32) {
         return _zkConfig[zkCoProcessorType].programIdentifier;
     }
 
     /**
      * @notice get the contract verifier for the provided ZK Co-processor
      */
-    function zkVerifier(ZkCoProcessorType zkCoProcessorType) external view returns (address) {
+    function zkVerifier(ZkCoProcessorType zkCoProcessorType) external view override returns (address) {
         return _zkConfig[zkCoProcessorType].zkVerifier;
     }
 
-    function checkTrustedIntermediateCerts(bytes32[][] calldata _reportCerts) external view returns (uint8[] memory) {
-        return _checkTrustedIntermediateCerts(_reportCerts);
+    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata reportCerts) external view override returns (uint8[] memory) {
+        return _checkTrustedIntermediateCerts(processorModels, reportCerts);
     }
 
     function verifyAndAttestWithZKProof(
@@ -134,6 +142,7 @@ contract SEVAgentAttestation is Ownable, CertCacheBase {
         // Check every trusted certificate to ensure none have been revoked
         for (uint256 i = 0; i < journal.trustedCertsPrefixLen; i++) {
             bytes32 certHash = journal.certs[i];
+            bytes32 rootCert = _rootCerts[ProcessorType(journal.processorModel)];
             if (i == 0) {
                 if (certHash != rootCert) {
                     journal.result = VerificationResult.RootCertNotTrusted;

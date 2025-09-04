@@ -6,6 +6,7 @@ import {SP1Verifier} from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import {ControlID, RiscZeroGroth16Verifier} from "risc0/groth16/RiscZeroGroth16Verifier.sol";
 import {SEVAgentAttestation} from "../src/SEVAgentAttestation.sol";
 import {ISnpAttestation, ZkCoProcessorType, ZkCoProcessorConfig} from "../src/interfaces/ISnpAttestation.sol";
+import {ProcessorType} from "../src/types/SevSnpTypes.sol";
 import {LibString} from "solady/utils/LibString.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
@@ -82,20 +83,18 @@ contract Deploy is Script {
         uint256 maxTimeDiff = vm.envOr("MAX_TIME_DIFF", uint256(1000));
         console.log(block.timestamp);
         vm.startBroadcast();
-        bytes32[] memory trustedCerts = new bytes32[](1);
-        trustedCerts[0] = 0x3dc78a6a9573a5e45d266144a86f05ef45829da59ff7f5552e066a67026a5ad8; // Milan
-        SEVAgentAttestation verifier = new SEVAgentAttestation(uint64(maxTimeDiff), trustedCerts);
+        SEVAgentAttestation verifier = new SEVAgentAttestation(uint64(maxTimeDiff), new bytes32[](0));
 
         vm.stopBroadcast();
         console.log("SEVAgentAttestation deployed at: ", address(verifier));
         saveDeployed("VERIFIER", address(verifier));
     }
 
-    function setRootCert(string memory path) public {
+    function setRootCert(ProcessorType processor, string memory path) public {
         ISnpAttestation verifier = ISnpAttestation(readDeployed("VERIFIER"));
         bytes memory _rootCert = vm.readFileBinary(path);
         vm.startBroadcast();
-        verifier.setRootCert(sha256(_rootCert));
+        verifier.setRootCert(processor, sha256(_rootCert));
         vm.stopBroadcast();
         console.log("Root certificate set to");
         console.logBytes32(sha256(_rootCert));
@@ -136,9 +135,8 @@ contract Deploy is Script {
         setZkVerifier(risc0Program);
     }
 
-    function deployAll(string memory rootCert, string memory sp1Program, string memory risc0Program) public {
+    function deployAll(string memory sp1Program, string memory risc0Program) public {
         deployVerifier();
-        setRootCert(rootCert);
         setZkVerifier(sp1Program);
         setZkVerifier(risc0Program);
     }
