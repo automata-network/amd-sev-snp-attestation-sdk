@@ -30,8 +30,20 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         _initializeOwner(msg.sender);
     }
 
+    /**
+     * @dev Returns the root certificate hash for a specific processor model
+     * @param processorModel The processor model (ProcessorType enum)
+     */
     function rootCerts(ProcessorType processorModel) external view override returns (bytes32) {
         return _rootCerts[processorModel];
+    }
+
+    /**
+     * @dev Sets the maximum allowed time difference for attestation timestamp validation
+     * @param _maxTimeDiff The maximum time difference in seconds
+     */
+    function setMaxTimeDiff(uint64 _maxTimeDiff) external onlyOwner {
+        maxTimeDiff = _maxTimeDiff;
     }
 
     /**
