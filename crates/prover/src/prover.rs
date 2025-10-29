@@ -220,8 +220,11 @@ impl AmdSevSnpProver {
                     tracing::warn!("Program ID verification failed: {:?}.", verify_err);
                 }
             }
-            let result =
-                block_on(contract.batch_query_cert_cache(vec![cert_chain.digest().to_vec()]))?;
+            let processor_model = report.get_cpu_codename()?;
+            let result = block_on(contract.batch_query_cert_cache(
+                vec![processor_model],
+                vec![cert_chain.digest().to_vec()],
+            ))?;
             trusted_certs_prefix_len = result[0];
         } else {
             tracing::warn!("Contract not provided, may lead to attestation failures and increased costs. Not recommended for production.");
