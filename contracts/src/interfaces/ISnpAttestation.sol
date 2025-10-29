@@ -32,7 +32,8 @@ struct VerifierJournal {
 enum ZkCoProcessorType {
     None,
     RiscZero,
-    Succinct
+    Succinct,
+    Pico
 }
 
 /**
@@ -67,7 +68,7 @@ interface ISnpAttestation {
     error Unknown_Zk_Coprocessor();
 
     /**
-     * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct... etc.
+     * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct, 3 - Pico... etc.
      * @return this is either the IMAGE_ID for RiscZero Guest Program or
      * Succiinct Program Verifying Key
      */

@@ -17,14 +17,25 @@ use crate::{
 use risc0_methods::{self, RISC0_VERIFIER_ELF, RISC0_VERIFIER_ID};
 #[cfg(feature = "sp1")]
 use sp1_methods::{self, SP1_VERIFIER_ELF, SP1_VERIFIER_PK, SP1_VERIFIER_VK};
+#[cfg(feature = "pico")]
+use pico_methods::PICO_VERIFIER_ELF;
 
+#[cfg(feature = "sp1")]
 lazy_static! {
-    #[cfg(feature = "sp1")]
     pub static ref SP1_PROGRAM_VERIFIER: crate::ProgramSP1<ZkCoProcessorType, VerifierInput, VerifierJournal> =
         crate::ProgramSP1::new(ZkCoProcessorType::Succinct, SP1_VERIFIER_ELF, &SP1_VERIFIER_VK, &SP1_VERIFIER_PK);
-    #[cfg(feature = "risc0")]
+}
+
+#[cfg(feature = "risc0")]
+lazy_static! {
     pub static ref RISC0_PROGRAM_VERIFIER: crate::ProgramRisc0<ZkCoProcessorType, VerifierInput, VerifierJournal> =
         crate::ProgramRisc0::new(ZkCoProcessorType::RiscZero, RISC0_VERIFIER_ELF, RISC0_VERIFIER_ID);
+}
+
+#[cfg(feature = "pico")]
+lazy_static! {
+    pub static ref PICO_PROGRAM_VERIFIER: crate::ProgramPico<VerifierInput, VerifierJournal> =
+        crate::ProgramPico::new(PICO_VERIFIER_ELF);
 }
 
 pub struct AmdSevSnpProver {
@@ -79,6 +90,16 @@ impl AmdSevSnpProver {
                         .map_err(|err| format!("{:?}", err)),
                     cfg,
                     verifier: Box::new(RISC0_PROGRAM_VERIFIER.clone()),
+                }
+            }
+            #[cfg(feature = "pico")]
+            ProverSystemConfig::Pico(_system_cfg) => {
+                AmdSevSnpProver {
+                    kds: KDS::new(),
+                    contract,
+                    remote_prover_config: Err("Remote prover not supported for Pico".to_string()),
+                    cfg,
+                    verifier: Box::new(PICO_PROGRAM_VERIFIER.clone()),
                 }
             }
         }

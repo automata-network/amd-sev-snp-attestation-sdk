@@ -24,6 +24,11 @@ pub struct ProverArgs {
     #[arg(long)]
     pub sp1: bool,
 
+    #[cfg(feature = "pico")]
+    /// Use the Pico zkVM for proof generation
+    #[arg(long)]
+    pub pico: bool,
+
     /// Enable development mode for mock proof generation
     #[arg(long, default_value = "false", env = "DEV_MODE")]
     pub dev: bool,
@@ -52,10 +57,18 @@ pub struct ProverArgs {
 impl ProverArgs {
     /// Creates a prover configuration based on the specified arguments.
     pub fn prover_config(&self) -> anyhow::Result<ProverConfig> {
-        #[cfg(all(feature = "sp1", feature = "risc0"))]
-        if self.sp1 && self.risc0 {
+        // Check for mutually exclusive flags
+        let mut count = 0;
+        #[cfg(feature = "sp1")]
+        if self.sp1 { count += 1; }
+        #[cfg(feature = "risc0")]
+        if self.risc0 { count += 1; }
+        #[cfg(feature = "pico")]
+        if self.pico { count += 1; }
+
+        if count > 1 {
             return Err(anyhow!(
-                "Cannot use both --sp1 and --risc0 at the same time."
+                "Cannot use multiple zkVM options at the same time. Choose one: --sp1, --risc0, or --pico"
             ));
         }
 
@@ -77,7 +90,13 @@ impl ProverArgs {
             }));
         }
 
-        bail!("No prover specified. Use --risc0 or --sp1 to select a proof system.");
+        #[cfg(feature = "pico")]
+        if self.pico {
+            use amd_sev_snp_attestation_prover::PicoProverConfig;
+            return Ok(ProverConfig::pico_with(PicoProverConfig::default()));
+        }
+
+        bail!("No prover specified. Use --risc0, --sp1, or --pico to select a proof system.");
     }
 
     /// Creates a new `NitroEnclaveProver` instance with the configured settings.

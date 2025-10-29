@@ -1,0 +1,12 @@
+[package]
+name = "pico-verifier"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pico-sdk = { workspace = true }
+amd-sev-snp-attestation-verifier = { workspace = true, features = ["pico"] }
+alloy-primitives = { workspace = true, default-features = false }
+anyhow.workspace = true
