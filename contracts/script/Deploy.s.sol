@@ -5,8 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {SP1Verifier} from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import {ControlID, RiscZeroGroth16Verifier} from "risc0/groth16/RiscZeroGroth16Verifier.sol";
 import {SEVAgentAttestation} from "../src/SEVAgentAttestation.sol";
-import {ISnpAttestation, ZkCoProcessorType, ZkCoProcessorConfig} from "../src/interfaces/ISnpAttestation.sol";
-import {ProcessorType} from "../src/types/SevSnpTypes.sol";
+import {ISnpAttestation, ZkCoProcessorType, ZkCoProcessorConfig, ProcessorType} from "../src/interfaces/ISnpAttestation.sol";
 import {LibString} from "solady/utils/LibString.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 

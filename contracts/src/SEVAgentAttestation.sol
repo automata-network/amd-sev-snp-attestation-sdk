@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import {IRiscZeroVerifier} from "risc0/IRiscZeroVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 import {
+    ProcessorType,
     ISnpAttestation,
     VerifierInput,
     VerifierJournal,
@@ -15,8 +16,6 @@ import {
 
 import {CertCacheBase} from "./bases/CertCacheBase.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
-
-import {ProcessorType} from "./types/SevSnpTypes.sol";
 
 contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     mapping(ZkCoProcessorType => ZkCoProcessorConfig) _zkConfig;

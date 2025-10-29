@@ -1,7 +1,16 @@
 //SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {ProcessorType} from "../types/SevSnpTypes.sol";
+enum ProcessorType {
+    // 7003 series AMD EPYC Processor
+    Milan,
+    // 9004 series AMD EPYC Processor
+    Genoa,
+    // 97x4 series AMD EPYC Processor
+    Bergamo,
+    // 8004 series AMD EPYC Processor
+    Siena
+}
 
 struct VerifierInput {
     uint64 timestamp;
