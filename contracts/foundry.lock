@@ -1,0 +1,26 @@
+{
+  "contracts/lib/forge-std": {
+    "rev": "77041d2ce690e692d6e03cc812b57d1ddaa4d505"
+  },
+  "contracts/lib/solady": {
+    "rev": "2af06408b6a204824c2ecb245779ed400b535fb5"
+  },
+  "contracts/lib/sp1-contracts": {
+    "rev": "fd53e397786eb270cddc6ac4737720c324e900dc"
+  },
+  "lib/forge-std": {
+    "rev": "77041d2ce690e692d6e03cc812b57d1ddaa4d505"
+  },
+  "lib/risc0-ethereum": {
+    "tag": {
+      "name": "v3.0.1",
+      "rev": "365e7b2db4f620fa256580c27558d2623362b9ae"
+    }
+  },
+  "lib/solady": {
+    "rev": "2af06408b6a204824c2ecb245779ed400b535fb5"
+  },
+  "lib/sp1-contracts": {
+    "rev": "fd53e397786eb270cddc6ac4737720c324e900dc"
+  }
+}

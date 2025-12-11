@@ -75,11 +75,11 @@ impl AmdSevSnpProver {
             }
             #[cfg(feature = "risc0")]
             ProverSystemConfig::RiscZero(system_cfg) => {
-                if let Some(api_url) = &system_cfg.api_url {
-                    std::env::set_var("BONSAI_API_URL", api_url);
+                if let Some(rpc_url) = &system_cfg.rpc_url {
+                    std::env::set_var("BOUNDLESS_RPC_URL", rpc_url);
                 }
-                if let Some(api_key) = &system_cfg.api_key {
-                    std::env::set_var("BONSAI_API_KEY", api_key);
+                if let Some(private_key) = &system_cfg.private_key {
+                    std::env::set_var("BOUNDLESS_PRIVATE_KEY", private_key);
                 }
                 AmdSevSnpProver {
                     kds: KDS::new(),

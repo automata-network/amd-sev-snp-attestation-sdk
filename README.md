@@ -47,8 +47,8 @@ function verifyAndAttestWithZKProof(
 
 | ZkType | Verifier ID | 
 | ------ | ----------- | 
-| Risc0  | 0xa474e8f24e5acd06b33371a719cbda092a0a5794fb4339b6cb5c6baffe4fc96c | 
-| SP1    | 0x000d4f4db1003de081791a7ee300dadcf9b8d4d001fc3d2a07070f300ab01aa1 |
+| Risc0  | 0xb3f3a99d20cd5c13c01020c5a0ffa3b9606f172a09ceed641b61a2f90a8fba5d | 
+| SP1    | 0x00bed9875ce89312fac32347c80f5b77d63af25a8d540fc441a98d753fd7d454 |
 
 ### ZK Optimization
 
@@ -59,17 +59,18 @@ To get started, you need to have the following installed:
 * [Foundry](https://getfoundry.sh/)
 * [RISC Zero](https://dev.risczero.com/api/zkvm/install)
 
-##### Configuring Bonsai
+##### Configuring Boundless
 
-***Note:*** *To request an API key [complete the form here](https://bonsai.xyz/apply).*
-
-With the Bonsai proving service, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
-You can get started by setting the following environment variables with your API key and associated URL.
+With the Boundless proving network, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
+You can get started by setting the following environment variables:
 
 ```bash
-export BONSAI_API_KEY="YOUR_API_KEY" # see form linked above
-export BONSAI_API_URL="BONSAI_URL" # provided with your api key
+export BOUNDLESS_RPC_URL="https://..."  # Boundless network RPC endpoint
+export BOUNDLESS_PRIVATE_KEY="0x..."    # Your wallet private key (hex-encoded)
+export PINATA_JWT="..."                  # Pinata JWT for IPFS storage (for ELF uploads)
 ```
+
+For more information, see the [Boundless documentation](https://docs.boundless.xyz/).
 
 #### Succinct
 To get started, you need to have the following installed:

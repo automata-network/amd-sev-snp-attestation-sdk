@@ -21,3 +21,4 @@ alloy-primitives.workspace = true
 tracing-subscriber.workspace = true
 log.workspace = true
 tracing.workspace = true
+dotenvy.workspace = true

@@ -38,6 +38,9 @@ enum Commands {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Load environment variables from .env file if present
+    dotenvy::dotenv().ok();
+
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::builder()
