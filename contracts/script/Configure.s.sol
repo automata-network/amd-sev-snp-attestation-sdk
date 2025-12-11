@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {Script, console} from "forge-std/Script.sol";
-import {KDS} from "../src/KDS.sol";
 import "../src/SEVAgentAttestation.sol";
 
 contract Configure is Script {
