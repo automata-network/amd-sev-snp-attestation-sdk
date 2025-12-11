@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./TestSetup.sol";
+import "./RiscZeroGroth16Setup.sol";
 import "./SuccinctGroth16Setup.sol";
+import "./PicoGroth16Setup.sol";
 import "../src/SEVAgentAttestation.sol";
 import "../src/types/SevSnpTypes.sol";
 import "../src/interfaces/ISnpAttestation.sol";
 
-contract SEVAgentTest is TestSetup, SuccinctGroth16Setup {
+contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16Setup {
     address internal constant admin = address(1);
+    string internal picoInputJson = vm.readFile(string.concat(vm.projectRoot(), "/test/assets/pico/inputs.json"));
 
     bytes constant ARK_MILAN_DER =
         hex"3082066330820412a0030201020203010000304606092a864886f70d01010a3039a00f300d06096086480165030402020500a11c301a06092a864886f70d010108300d06096086480165030402020500a203020130a303020101307b31143012060355040b0c0b456e67696e656572696e67310b30090603550406130255533114301206035504070c0b53616e746120436c617261310b300906035504080c024341311f301d060355040a0c16416476616e636564204d6963726f20446576696365733112301006035504030c0941524b2d4d696c616e301e170d3230313032323137323330355a170d3435313032323137323330355a307b31143012060355040b0c0b456e67696e656572696e67310b30090603550406130255533114301206035504070c0b53616e746120436c617261310b300906035504080c024341311f301d060355040a0c16416476616e636564204d6963726f20446576696365733112301006035504030c0941524b2d4d696c616e30820222300d06092a864886f70d01010105000382020f003082020a0282020100d0b779d9124e75e88996a2b625db15983ec592dba8b56c17d5f3605b8d5763d5f3d471214949a12f3f42bbd0c7465be02523716de618b2725fbf28f1d4c7d4d15e6d90a894d447ac345b5ad644c0d2cccd8ac75873d8acaa4ee65d3e7e29f1916df73857ff73448704f2394737ad52d63bbc5fddfee9dc4352b1b64b3c6a278061ab2626503aee3d72525f8bd4734d4fee3f7c329a8e4bde6b3917461de239d8d6b3e66d81f8efaf8ec0b4eb4777ee363d2c57ae38fe0c7ab8bcaa07e2d92e642aa83f685e9a3edb80650551eeedca1585cfe7d5e6260b5ca20d398262344ff3a2b4b86ecd5be965c2e9874a1d87fd483d7ab1dfe3278c3f7b03b7d7a6a19dff2f0ac57ee392c4c4cc03a06ca01e6a6de59bedf228871360c96c44c5cf72335b22f9ac072903fffc529e2bacb870648279443445b1d5471b410aecfa054392e54f86c9f321136062f338f18fbb2c6889627ae613cc5cadec5e901c6bbdad95f53250aa7377439de4b79be2422dfe8027e69300b4174b62ac865b2e45cfacfc3367433d78dc6123249bda7a497e09eacf9e48d2edf7c21e2bd1935079319fc34dcc054b72bb319eb0691cc3e968a8c6aad6a478b6319b3d8c42be90aaefe3a0a420a830d8addae2e8f4cd7c7c7cf5d2538c4fc9d6014bd1645ced7970a6fbb3c77583e5990c14c372ef7a727f20b5e840f1df6e41f40b23df865d635a124565ab0203010001a37e307c300e0603551d0f0101ff040403020106301d0603551d0e0416041485ac1ad143f7c8ac55d4c51d4148abd5784ad453300f0603551d130101ff040530030101ff303a0603551d1f04333031302fa02da02b862968747470733a2f2f6b6473696e74662e616d642e636f6d2f7663656b2f76312f4d696c616e2f63726c304606092a864886f70d01010a3039a00f300d06096086480165030402020500a11c301a06092a864886f70d010108300d06096086480165030402020500a203020130a3030201010382020100ba9b4903a7acefe0e8df832fb395e7a1b31ea8974a1c8157a5113a1ba71f84b82b2a54544f2b58d9d6ca7f97277dfb47d0d2beba9fb91a81193809adfd83ae9619324c78976a62b8b04938e30c22953d27ac59760f540c838663f99f6bfe0588a9656869beaa5a88ef8418ae4804ffb9efc41e5bfb12a24aca74768b0311b62e16718fd685ef77ea0bb380259e5a3e89f0e11136f7d1556ab8754f1d9e4f7c128240e0bad09307562acd3e43bb0bc07be728d822152333036a662e4858cf3740428288e5ed5f9b4e8bbb74cb2a22efd35bfacf097f7f1147292862aa3d0dcff8df6bd618c4158d6994183ddede7738ea38f46348f95d73bd73cb23ac48155b21fa6b68d91b60117fdea6630a4cd37aa6c5bcf2a83b7358535ad37a31b46e434be6f8efbfdad28117687c4c76fde0ebef1c7a050e96c210b96a1e7218871cb460a5c6c9a5b53637d42f1aeb9b1556e30727e44f0675d9af35aeb2626f2c7096a0122d779a11aee09aa1dd0537b1ff2251252bd3dc500f01ed39051522ac7899a0593c1b5231ffaa503b635d24aaf257d671df1b2ebf6676c527259274fadb8f30a9819d21fceb49652a4f95a5542c82a6f30c8bce2ef0fa5b5526ab6e5ba3109827e4ee0686b8b3e1c7095880be04fd91ffeb06ad5dfa2be3eac9241f1bb37316e4d71bfa646c6bb5e271547eca957ed845d67a78044ac0b7b8005644030a0a09";
@@ -24,7 +26,9 @@ contract SEVAgentTest is TestSetup, SuccinctGroth16Setup {
 
         vm.startPrank(admin);
 
-        attestation = new SEVAgentAttestation(100000, new bytes32[](0));
+        bytes32[] memory initialTrustedCerts = new bytes32[](1);
+        initialTrustedCerts[0] = 0x3dc78a6a9573a5e45d266144a86f05ef45829da59ff7f5552e066a67026a5ad8;
+        attestation = new SEVAgentAttestation(100000, initialTrustedCerts);
 
         bytes memory ark = vm.readFileBinary(string.concat(vm.projectRoot(), "/test/assets/ark-milan.der"));
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
@@ -37,6 +41,12 @@ contract SEVAgentTest is TestSetup, SuccinctGroth16Setup {
         ZkCoProcessorConfig memory sp1Config =
             ZkCoProcessorConfig({programIdentifier: SEV_AGENT_SP1_VKEY, zkVerifier: sp1Verifier});
         SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.Succinct, sp1Config);
+
+        address picoVerifier = setupPico();
+        bytes32 sevPicoVkey = abi.decode(vm.parseJson(picoInputJson, ".riscvVKey"), (bytes32));
+        ZkCoProcessorConfig memory picoConfig =
+            ZkCoProcessorConfig({programIdentifier: sevPicoVkey, zkVerifier: picoVerifier});
+        SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.Pico, picoConfig);
 
         vm.stopPrank();
     }
@@ -71,5 +81,26 @@ contract SEVAgentTest is TestSetup, SuccinctGroth16Setup {
 
         assertEq(uint8(zkOutput.result), uint8(VerificationResult.Success));
         assertEq(zkOutput.processorModel, uint8(ProcessorType.Milan));
+    }
+
+    function testSevAttestationPico() public {
+        // prevents InvalidTimestamp error
+        vm.warp(1761733828);
+        
+        bytes memory publicValues = abi.decode(vm.parseJson(picoInputJson, ".publicValues"), (bytes));
+        bytes32[] memory proofBytes32 = abi.decode(vm.parseJson(picoInputJson, ".proof"), (bytes32[]));
+
+        uint256[8] memory proofArray;
+        for (uint256 i = 0; i < 8; i++) {
+            proofArray[i] = uint256(proofBytes32[i]);
+        }
+
+        VerifierJournal memory journal = attestation.verifyAndAttestWithZKProof(
+            publicValues, 
+            ZkCoProcessorType.Pico, 
+            abi.encode(proofArray)
+        );
+
+        assertEq(uint8(journal.result), uint8(VerificationResult.Success));
     }
 }

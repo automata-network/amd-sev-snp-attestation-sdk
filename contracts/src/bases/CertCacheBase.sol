@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {ProcessorType} from "../types/SevSnpTypes.sol";
+import {ProcessorType} from "../interfaces/ISnpAttestation.sol";
 
 abstract contract CertCacheBase {
     /// @dev Mapping of trusted intermediate certificate hashes (excludes root certificate)

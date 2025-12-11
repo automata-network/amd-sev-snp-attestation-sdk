@@ -9,3 +9,6 @@ target/
 .DS_Store
 
 *.code-workspace
+
+# Pico EVM Proof Artifacts
+evm_proof_artifacts/

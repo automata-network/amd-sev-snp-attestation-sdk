@@ -7,7 +7,7 @@ use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolCall;
 use amd_sev_snp_attestation_verifier::stub::{
-    ISnpAttestation::*, VerifierJournal, ZkCoProcessorType,
+    ISnpAttestation::*, ProcessorType, VerifierJournal, ZkCoProcessorType,
 };
 use anyhow::{anyhow, Context};
 
@@ -145,8 +145,12 @@ impl SnpVerifierContract {
             .with_context(|| format!("proof: {}, journal: {}", proof, journal))?)
     }
 
-    pub async fn root_cert(&self) -> anyhow::Result<B256> {
-        Ok(self.call(&rootCertCall {}).await?)
+    pub async fn root_certs(&self, processor_model: ProcessorType) -> anyhow::Result<B256> {
+        Ok(self
+            .call(&rootCertsCall {
+                processorModel: processor_model,
+            })
+            .await?)
     }
 
     pub async fn program_id(&self, zk: ZkCoProcessorType) -> anyhow::Result<B256> {
@@ -162,6 +166,7 @@ impl SnpVerifierContract {
 
     pub async fn batch_query_cert_cache(
         &self,
+        processor_models: Vec<ProcessorType>,
         certs_digests: Vec<Vec<B256>>,
     ) -> anyhow::Result<Vec<u8>> {
         if certs_digests.is_empty() {
@@ -179,6 +184,7 @@ impl SnpVerifierContract {
 
         let result = self
             .call(&checkTrustedIntermediateCertsCall {
+                processorModels: processor_models,
                 _reportCerts: certs_digests,
             })
             .await?;

@@ -106,14 +106,3 @@ library AttestationReportLib {
         }
     }
 }
-
-enum ProcessorType {
-    // 7003 series AMD EPYC Processor
-    Milan,
-    // 9004 series AMD EPYC Processor
-    Genoa,
-    // 97x4 series AMD EPYC Processor
-    Bergamo,
-    // 8004 series AMD EPYC Processor
-    Siena
-}

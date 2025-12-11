@@ -3,6 +3,7 @@ mod upload;
 mod utils;
 mod debug;
 mod proof;
+mod program_id;
 
 use clap::{Parser, Subcommand};
 use tracing::level_filters::LevelFilter;
@@ -31,6 +32,9 @@ enum Commands {
 
     #[clap(subcommand)]
     Proof(proof::ProofCli),
+
+    /// Print the program ID of the zkVM program
+    ProgramId(program_id::ProgramIdCli),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -48,6 +52,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Upload(cli) => cli.run()?,
         Commands::Debug(cli) => cli.run()?,
         Commands::Proof(cli) => cli.run()?,
+        Commands::ProgramId(cli) => cli.run()?,
     }
     Ok(())
 }

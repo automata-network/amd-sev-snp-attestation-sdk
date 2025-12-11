@@ -8,6 +8,8 @@ members = [
     "crates/risc0-methods/risc0-verifier",
     "crates/sp1-methods",
     "crates/sp1-methods/sp1-verifier",
+    "crates/pico-methods",
+    "crates/pico-methods/pico-verifier",
     "crates/sev-snp",
 ]
 default-members = [
@@ -31,7 +33,7 @@ opt-level = 3
 
 [profile.release]
 debug = 1
-lto = true
+lto = "thin"
 
 [workspace.dependencies]
 # guest-program-lib = { path = "crates/guest-program-lib" }
@@ -40,6 +42,7 @@ amd-sev-snp-attestation-verifier = { path = "crates/verifier", default-features 
 x509-verifier-rust-crypto = { path = "crates/x509-verifier-rust-crypto" }
 risc0-methods = { path = "crates/risc0-methods" }
 sp1-methods = { path = "crates/sp1-methods" }
+pico-methods = { path = "crates/pico-methods" }
 
 clap = { version = "4.0", features = ["derive", "env"] }
 anyhow = { version = "1", features = ["backtrace"] }
@@ -60,6 +63,8 @@ hex = "0.4"
 sp1-zkvm = "5.0.0"
 sp1-sdk = "5.0.0"
 sp1-build = "5.0.0"
+pico-sdk = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
+pico-vm = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
 alloy-primitives = { version = "1.2", default-features = false }
 tokio = { version = "1.35", features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -74,4 +79,4 @@ alloy-signer-local = "1.0.17"
 tracing = "0.1.41"
 crossbeam = "0.8.4"
 lazy_static = "1.5.0"
-reqwest = "0.12.8"
+reqwest = { version = "0.12.8", features = ["blocking"] }

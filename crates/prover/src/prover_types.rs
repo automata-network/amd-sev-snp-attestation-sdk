@@ -61,6 +61,21 @@ impl ProverConfig {
         }
     }
 
+    #[cfg(feature = "pico")]
+    pub fn pico() -> Self {
+        Self::pico_with(Default::default())
+    }
+
+    #[cfg(feature = "pico")]
+    pub fn pico_with(cfg: crate::program_pico::PicoProverConfig) -> Self {
+        Self {
+            default_trusted_certs_prefix_length: Self::default_trusted_certs_prefix_length(),
+            skip_time_validity_check: Self::skip_time_validity_check(),
+            skip_contract_program_id_check: Self::skip_contract_program_id_check(),
+            system: ProverSystemConfig::Pico(cfg),
+        }
+    }
+
     fn default_trusted_certs_prefix_length() -> u8 {
         std::env::var("DEFAULT_TRUSTED_CERTS_PREFIX_LENGTH")
             .ok()
@@ -89,6 +104,8 @@ pub enum ProverSystemConfig {
     Succinct(crate::program_sp1::SP1ProverConfig),
     #[cfg(feature = "risc0")]
     RiscZero(crate::program_risc0::RiscZeroProverConfig),
+    #[cfg(feature = "pico")]
+    Pico(crate::program_pico::PicoProverConfig),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

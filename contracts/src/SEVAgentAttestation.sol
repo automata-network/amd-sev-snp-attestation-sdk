@@ -4,7 +4,10 @@ pragma solidity ^0.8.0;
 // ZK-Coprocessor imports:
 import {IRiscZeroVerifier} from "risc0/IRiscZeroVerifier.sol";
 import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
+import {IPicoVerifier} from "./pico/IPicoVerifier.sol";
+
 import {
+    ProcessorType,
     ISnpAttestation,
     VerifierInput,
     VerifierJournal,
@@ -15,8 +18,6 @@ import {
 
 import {CertCacheBase} from "./bases/CertCacheBase.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
-
-import {ProcessorType} from "./types/SevSnpTypes.sol";
 
 contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     mapping(ZkCoProcessorType => ZkCoProcessorConfig) _zkConfig;
@@ -125,6 +126,9 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
             IRiscZeroVerifier(zkConfig.zkVerifier).verify(proofBytes, zkConfig.programIdentifier, sha256(output));
         } else if (zkCoprocessor == ZkCoProcessorType.Succinct) {
             ISP1Verifier(zkConfig.zkVerifier).verifyProof(zkConfig.programIdentifier, output, proofBytes);
+        } else if (zkCoprocessor == ZkCoProcessorType.Pico) {
+            IPicoVerifier(zkConfig.zkVerifier)
+                .verifyPicoProof(zkConfig.programIdentifier, output, abi.decode(proofBytes, (uint256[8])));
         } else {
             revert ISnpAttestation.Unknown_Zk_Coprocessor();
         }
