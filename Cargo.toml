@@ -33,7 +33,7 @@ opt-level = 3
 
 [profile.release]
 debug = 1
-lto = true
+lto = "thin"
 
 [workspace.dependencies]
 # guest-program-lib = { path = "crates/guest-program-lib" }
