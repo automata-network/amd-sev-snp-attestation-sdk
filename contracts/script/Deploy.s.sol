@@ -114,11 +114,11 @@ contract Deploy is Script {
         bytes32 verifierId = vm.parseJsonBytes32(proofJson, ".program_id.verifier_id");
         string memory zktype = vm.parseJsonString(proofJson, ".zktype");
         ZkCoProcessorType zkType = _getZkType(zktype);
-        ZkCoProcessorConfig memory config = ZkCoProcessorConfig({programIdentifier: verifierId, zkVerifier: address(0)});
+        ZkCoProcessorConfig memory config = ZkCoProcessorConfig({latestProgramIdentifier: verifierId, defaultZkVerifier: address(0)});
         if (zkType == ZkCoProcessorType.RiscZero) {
-            config.zkVerifier = readDeployed("RISC0_VERIFIER");
+            config.defaultZkVerifier = readDeployed("RISC0_VERIFIER");
         } else if (zkType == ZkCoProcessorType.Succinct) {
-            config.zkVerifier = readDeployed("SP1_VERIFIER");
+            config.defaultZkVerifier = readDeployed("SP1_VERIFIER");
         } else {
             revert("unknown zkType");
         }

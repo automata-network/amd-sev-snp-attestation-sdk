@@ -18,17 +18,35 @@ import {
 
 import {CertCacheBase} from "./bases/CertCacheBase.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
+import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+
+    // use this constant to indicate that the ZK Route has been frozen
+    address constant FROZEN = address(0xdead);
+
     mapping(ZkCoProcessorType => ZkCoProcessorConfig) _zkConfig;
+    mapping(ZkCoProcessorType => EnumerableSet.Bytes32Set) _programIdConfig;
+    mapping(ZkCoProcessorType => mapping(bytes4 selector => address zkVerifier)) _zkVerifierConfig;
 
     /// @dev Maximum allowed time difference in seconds for attestation timestamp validation
     uint64 public maxTimeDiff;
+
+    event ZkCoProcessorUpdated(ZkCoProcessorType indexed zkCoProcessor, bytes32 programIdentifier, address zkVerifier);
+    event ZkProgramIdentifierRemoved(ZkCoProcessorType indexed zkCoProcessor, bytes32 programIdentifier);
+    event ZkRouteAdded(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector, address zkVerifier);
+    event ZkRouteFrozen(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector);
 
     constructor(uint64 _maxTimeDiff, bytes32[] memory initializeTrustedCerts) {
         maxTimeDiff = _maxTimeDiff;
         _initializeTrustedCerts(initializeTrustedCerts);
         _initializeOwner(msg.sender);
+    }
+
+    modifier noneZkConfigCheck(ZkCoProcessorType zkCoProcessor) {
+        require(zkCoProcessor != ZkCoProcessorType.None, "Cannot use None ZK Co-Processor");
+        _;
     }
 
     /**
@@ -84,8 +102,47 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         external
         override
         onlyOwner
+        noneZkConfigCheck(zkCoProcessor)
     {
         _zkConfig[zkCoProcessor] = config;
+        _programIdConfig[zkCoProcessor].add(config.latestProgramIdentifier);
+        emit ZkCoProcessorUpdated(zkCoProcessor, config.latestProgramIdentifier, config.defaultZkVerifier);
+    }
+
+    /**
+     * @notice Updates the Program Identifier for the specified ZK Co-Processor
+     */
+    function updateProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier)
+        external
+        override
+        onlyOwner
+        noneZkConfigCheck(zkCoProcessor)
+    {
+        require(identifier != bytes32(0), "Program identifier cannot be zero");
+        ZkCoProcessorConfig storage config = _zkConfig[zkCoProcessor];
+        require(config.latestProgramIdentifier != identifier, "Program identifier is already the latest");
+        config.latestProgramIdentifier = identifier;
+        _programIdConfig[zkCoProcessor].add(identifier);
+        emit ZkCoProcessorUpdated(zkCoProcessor, identifier, config.defaultZkVerifier);
+    }
+
+    /**
+     * @notice Deprecates a Program Identifier for the specified ZK Co-Processor
+     */
+    function removeProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier)
+        external
+        override
+        onlyOwner
+        noneZkConfigCheck(zkCoProcessor)
+    {
+        require(_programIdConfig[zkCoProcessor].contains(identifier), "Program identifier does not exist");
+        // To remove the latest program identifier
+        // you must first update it with a newer program identifier
+        if (_zkConfig[zkCoProcessor].latestProgramIdentifier == identifier) {
+            revert ISnpAttestation.Cannot_Remove_ProgramIdentifier(zkCoProcessor, identifier);
+        }
+        _programIdConfig[zkCoProcessor].remove(identifier);
+        emit ZkProgramIdentifierRemoved(zkCoProcessor, identifier);
     }
 
     /**
@@ -94,14 +151,73 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
      * Succiinct Program Verifying Key
      */
     function programIdentifier(ZkCoProcessorType zkCoProcessorType) external view override returns (bytes32) {
-        return _zkConfig[zkCoProcessorType].programIdentifier;
+        return _zkConfig[zkCoProcessorType].latestProgramIdentifier;
     }
 
     /**
-     * @notice get the contract verifier for the provided ZK Co-processor
+     * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct, 3 - Pico... etc.
+     * @return this returns the list of all program identifiers for the specified ZK Co-processor
      */
-    function zkVerifier(ZkCoProcessorType zkCoProcessorType) external view override returns (address) {
-        return _zkConfig[zkCoProcessorType].zkVerifier;
+    function programIdentifiers(ZkCoProcessorType zkCoProcessorType) external view override returns (bytes32[] memory) {
+        return _programIdConfig[zkCoProcessorType].values();
+    }
+
+    /**
+     * @notice get the default contract verifier for the provided ZK Co-processor
+     */
+    function zkVerifier(ZkCoProcessorType zkCoProcessorType) public view override returns (address) {
+        return _zkConfig[zkCoProcessorType].defaultZkVerifier;
+    }
+
+    /**
+     * @notice gets the specific ZK Verifier for the provided ZK Co-processor and proof selector
+     * @notice this function will revert if the provided selector has been frozen
+     * @notice otherwise, if a specific ZK verifier is not configured for the provided selector
+     * @notice it will return the default ZK verifier
+     */
+    function zkVerifier(ZkCoProcessorType zkCoProcessorType, bytes4 selector) public view override returns (address) {
+        address verifier = _zkVerifierConfig[zkCoProcessorType][selector];
+        if (verifier == FROZEN) {
+            revert ISnpAttestation.ZK_Route_Frozen(zkCoProcessorType, selector);
+        } else if (verifier == address(0)) {
+            return zkVerifier(zkCoProcessorType);
+        } else {
+            return verifier;
+        }
+    }
+
+    /**
+     * @notice Adds a verifier for a specific ZK Route to override the default ZK Verifier
+     */
+    function addVerifyRoute(ZkCoProcessorType zkCoProcessor, bytes4 selector, address verifier)
+        external
+        override
+        onlyOwner
+        noneZkConfigCheck(zkCoProcessor)
+    {
+        require(verifier != address(0), "ZK Verifier cannot be zero address");
+        if (_zkVerifierConfig[zkCoProcessor][selector] == FROZEN) {
+            revert ISnpAttestation.ZK_Route_Frozen(zkCoProcessor, selector);
+        }
+        _zkVerifierConfig[zkCoProcessor][selector] = verifier;
+        emit ZkRouteAdded(zkCoProcessor, selector, verifier);
+    }
+
+    /**
+     * @notice PERMANENTLY freezes a ZK Route
+     */
+    function freezeVerifyRoute(ZkCoProcessorType zkCoProcessor, bytes4 selector)
+        external
+        override
+        onlyOwner
+        noneZkConfigCheck(zkCoProcessor)
+    {
+        address verifier = _zkVerifierConfig[zkCoProcessor][selector];
+        if (verifier == FROZEN) {
+            revert ISnpAttestation.ZK_Route_Frozen(zkCoProcessor, selector);
+        }
+        _zkVerifierConfig[zkCoProcessor][selector] = FROZEN;
+        emit ZkRouteFrozen(zkCoProcessor, selector);
     }
 
     function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata reportCerts)
@@ -113,22 +229,66 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         return _checkTrustedIntermediateCerts(processorModels, reportCerts);
     }
 
+    /**
+     * @notice Verifies attestation using ZK proof with the latest program identifier
+     */
     function verifyAndAttestWithZKProof(
         bytes calldata output,
         ZkCoProcessorType zkCoprocessor,
         bytes calldata proofBytes
-    ) external returns (VerifierJournal memory parsed) {
-        ZkCoProcessorConfig memory zkConfig = _zkConfig[zkCoprocessor];
+    ) external override returns (VerifierJournal memory parsed) {
+        bytes32 identifier = _zkConfig[zkCoprocessor].latestProgramIdentifier;
+        return _verifyAndAttestWithZKProof(output, zkCoprocessor, identifier, proofBytes);
+    }
+
+    /**
+     * @notice Verifies attestation using ZK proof with a specified program identifier
+     */
+    function verifyAndAttestWithZKProof(
+        bytes calldata output,
+        ZkCoProcessorType zkCoprocessor,
+        bytes32 identifier,
+        bytes calldata proofBytes
+    ) external override returns (VerifierJournal memory parsed) {
+        return _verifyAndAttestWithZKProof(output, zkCoprocessor, identifier, proofBytes);
+    }
+
+    /**
+     * @notice Internal verification logic for ZK proofs
+     */
+    function _verifyAndAttestWithZKProof(
+        bytes calldata output,
+        ZkCoProcessorType zkCoprocessor,
+        bytes32 identifier,
+        bytes calldata proofBytes
+    ) internal returns (VerifierJournal memory parsed) {
+        // Validate the program identifier is in the allowed set
+        if (!_programIdConfig[zkCoprocessor].contains(identifier)) {
+            revert ISnpAttestation.Invalid_Program_Identifier(zkCoprocessor, identifier);
+        }
+
+        // Determine the verifier to use (route-specific or default)
+        bytes4 selector = bytes4(proofBytes[0:4]);
+        address verifierAddr = _zkVerifierConfig[zkCoprocessor][selector];
+
+        if (verifierAddr == FROZEN) {
+            revert ISnpAttestation.ZK_Route_Frozen(zkCoprocessor, selector);
+        }
+
+        if (verifierAddr == address(0)) {
+            verifierAddr = _zkConfig[zkCoprocessor].defaultZkVerifier;
+        }
+
+        require(verifierAddr != address(0), "ZK Verifier is not configured");
 
         parsed = abi.decode(output, (VerifierJournal));
 
         if (zkCoprocessor == ZkCoProcessorType.RiscZero) {
-            IRiscZeroVerifier(zkConfig.zkVerifier).verify(proofBytes, zkConfig.programIdentifier, sha256(output));
+            IRiscZeroVerifier(verifierAddr).verify(proofBytes, identifier, sha256(output));
         } else if (zkCoprocessor == ZkCoProcessorType.Succinct) {
-            ISP1Verifier(zkConfig.zkVerifier).verifyProof(zkConfig.programIdentifier, output, proofBytes);
+            ISP1Verifier(verifierAddr).verifyProof(identifier, output, proofBytes);
         } else if (zkCoprocessor == ZkCoProcessorType.Pico) {
-            IPicoVerifier(zkConfig.zkVerifier)
-                .verifyPicoProof(zkConfig.programIdentifier, output, abi.decode(proofBytes, (uint256[8])));
+            IPicoVerifier(verifierAddr).verifyPicoProof(identifier, output, abi.decode(proofBytes, (uint256[8])));
         } else {
             revert ISnpAttestation.Unknown_Zk_Coprocessor();
         }

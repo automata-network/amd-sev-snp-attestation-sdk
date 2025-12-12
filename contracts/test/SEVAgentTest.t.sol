@@ -36,18 +36,18 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
 
         ZkCoProcessorConfig memory riscZeroConfig =
-            ZkCoProcessorConfig({programIdentifier: SEV_IMAGE_RISCZERO_ID, zkVerifier: address(riscZeroVerifier)});
+            ZkCoProcessorConfig({latestProgramIdentifier: SEV_IMAGE_RISCZERO_ID, defaultZkVerifier: address(riscZeroVerifier)});
         SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.RiscZero, riscZeroConfig);
 
         address sp1Verifier = setupSp1();
         ZkCoProcessorConfig memory sp1Config =
-            ZkCoProcessorConfig({programIdentifier: SEV_AGENT_SP1_VKEY, zkVerifier: sp1Verifier});
+            ZkCoProcessorConfig({latestProgramIdentifier: SEV_AGENT_SP1_VKEY, defaultZkVerifier: sp1Verifier});
         SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.Succinct, sp1Config);
 
         address picoVerifier = setupPico();
         bytes32 sevPicoVkey = abi.decode(vm.parseJson(picoInputJson, ".riscvVKey"), (bytes32));
         ZkCoProcessorConfig memory picoConfig =
-            ZkCoProcessorConfig({programIdentifier: sevPicoVkey, zkVerifier: picoVerifier});
+            ZkCoProcessorConfig({latestProgramIdentifier: sevPicoVkey, defaultZkVerifier: picoVerifier});
         SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.Pico, picoConfig);
 
         vm.stopPrank();

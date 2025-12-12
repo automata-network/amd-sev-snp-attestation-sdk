@@ -11,7 +11,7 @@ contract Configure is Script {
         address attestationAddr = vm.envAddress("AMD_SEV_SNP_ATTESTATION_VERIFIER");
 
         ZkCoProcessorConfig memory config =
-            ZkCoProcessorConfig({programIdentifier: programId, zkVerifier: verifierGateway});
+            ZkCoProcessorConfig({latestProgramIdentifier: programId, defaultZkVerifier: verifierGateway});
 
         vm.broadcast();
         SEVAgentAttestation(attestationAddr).setZkConfiguration(ZkCoProcessorType(zk), config);
