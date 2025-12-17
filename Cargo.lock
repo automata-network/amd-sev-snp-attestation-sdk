@@ -7632,7 +7632,9 @@ dependencies = [
 name = "risc0-methods"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "risc0-build",
+ "risc0-zkvm",
 ]
 
 [[package]]

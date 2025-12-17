@@ -29,7 +29,7 @@ lazy_static! {
 #[cfg(feature = "risc0")]
 lazy_static! {
     pub static ref RISC0_PROGRAM_VERIFIER: crate::ProgramRisc0<ZkCoProcessorType, VerifierInput, VerifierJournal> =
-        crate::ProgramRisc0::new(ZkCoProcessorType::RiscZero, RISC0_VERIFIER_ELF, RISC0_VERIFIER_ID);
+        crate::ProgramRisc0::new(ZkCoProcessorType::RiscZero, RISC0_VERIFIER_ELF, *RISC0_VERIFIER_ID);
 }
 
 #[cfg(feature = "pico")]

@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
-use sp1_sdk::{include_elf, EnvProver, SP1ProvingKey, SP1VerifyingKey};
+use sp1_sdk::{EnvProver, SP1ProvingKey, SP1VerifyingKey};
 
-pub const SP1_VERIFIER_ELF: &[u8] = include_elf!("sp1-verifier");
+pub const SP1_VERIFIER_ELF: &[u8] = include_bytes!(".././elf/nitro-sp1-guest-program-elf");
 
 lazy_static! {
     pub static ref ENV_PROVER: EnvProver = EnvProver::new();
