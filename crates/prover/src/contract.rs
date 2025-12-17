@@ -102,7 +102,7 @@ impl SnpVerifierContract {
         proof: Bytes,
         journal: Bytes,
     ) -> anyhow::Result<VerifierJournal> {
-        let call = verifyAndAttestWithZKProofCall {
+        let call = verifyAndAttestWithZKProof_0Call {
             output: journal.clone(),
             zkCoprocessor: zk,
             proofBytes: proof.clone(),
@@ -134,7 +134,7 @@ impl SnpVerifierContract {
         proof: Bytes,
         journal: Bytes,
     ) -> anyhow::Result<PendingTransactionBuilder<Ethereum>> {
-        let call = verifyAndAttestWithZKProofCall {
+        let call = verifyAndAttestWithZKProof_0Call {
             output: journal.clone(),
             zkCoprocessor: zk,
             proofBytes: proof.clone(),
