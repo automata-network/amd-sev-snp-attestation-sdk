@@ -125,12 +125,12 @@ impl AmdSevSnpProver {
     /// # Returns
     ///
     /// A `ProgramId` struct containing:
-    /// - `verifier_id`: Hash of the verifier program
-    /// - `verifier_proof_id`: Hash of the aggregator to verify the verifier's proof
-    /// - `aggregator_id`: Hash of the aggregator program
+    /// - `verifier_id`: The onchain representation of theprogram ID for verification
+    /// - `verifier_proof_id`: The offchain representation of the program ID for proof generation
     pub fn get_program_id(&self) -> ProgramId {
         ProgramId {
             verifier_id: self.verifier.program_id(),
+            verify_proof_id: self.verifier.verify_proof_id(),
         }
     }
 

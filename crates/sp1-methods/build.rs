@@ -2,7 +2,7 @@ use sp1_build::{build_program_with_args, BuildArgs};
 use std::path::Path;
 
 fn main() {
-    let elf_path = "./elf/nitro-sp1-guest-program-elf";
+    let elf_path = "./elf/sp1-verifier-elf";
 
     if Path::new(elf_path).exists() {
         println!(
@@ -30,7 +30,7 @@ fn main() {
         "./sp1-verifier",
         BuildArgs {
             output_directory: Some("./elf".to_string()),
-            elf_name: Some("nitro-sp1-guest-program-elf".to_string()),
+            elf_name: Some("sp1-verifier-elf".to_string()),
             docker: use_docker,
             workspace_directory,
             ..Default::default()

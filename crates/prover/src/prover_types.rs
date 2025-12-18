@@ -160,6 +160,7 @@ impl OnchainProof {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProgramId {
     pub verifier_id: B256,
+    pub verify_proof_id: B256,
 }
 
 impl ProgramId {
