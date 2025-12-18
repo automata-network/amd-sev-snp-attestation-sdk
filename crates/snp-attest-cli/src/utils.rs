@@ -34,24 +34,24 @@ pub struct ProverArgs {
     pub dev: bool,
 
     /// Private key for SP1 network prover
-    #[arg(long, env = "NETWORK_PRIVATE_KEY")]
+    #[arg(long, env = "SP1_PRIVATE_KEY")]
     pub sp1_private_key: Option<String>,
 
     /// RPC URL for SP1 network connection
     #[arg(
         long,
-        env = "NETWORK_RPC_URL",
+        env = "SP1_RPC_URL",
         default_value = "https://rpc.production.succinct.xyz"
     )]
     pub sp1_rpc_url: Option<String>,
 
-    /// API URL for RISC0 Bonsai service
-    #[arg(long, env = "BONSAI_API_URL", default_value = "https://api.bonsai.xyz")]
-    pub risc0_api_url: Option<String>,
+    /// RPC URL for Boundless prover network
+    #[arg(long, env = "BOUNDLESS_RPC_URL")]
+    pub boundless_rpc_url: Option<String>,
 
-    /// API key for RISC0 Bonsai service authentication
-    #[arg(long, env = "BONSAI_API_KEY")]
-    pub risc0_api_key: Option<String>,
+    /// Private key for Boundless prover network (hex-encoded)
+    #[arg(long, env = "BOUNDLESS_PRIVATE_KEY")]
+    pub boundless_private_key: Option<String>,
 }
 
 impl ProverArgs {
@@ -75,6 +75,12 @@ impl ProverArgs {
         #[cfg(feature = "sp1")]
         if self.sp1 {
             use amd_sev_snp_attestation_prover::SP1ProverConfig;
+            if let Some(sp1_private_key) = self.sp1_private_key.as_ref() {
+                std::env::set_var("NETWORK_PRIVATE_KEY", sp1_private_key);
+            }
+            if let Some(sp1_rpc_url) = self.sp1_rpc_url.as_ref() {
+                std::env::set_var("NETWORK_RPC_URL", sp1_rpc_url);
+            }
             return Ok(ProverConfig::sp1_with(SP1ProverConfig {
                 private_key: self.sp1_private_key.clone(),
                 rpc_url: self.sp1_rpc_url.clone(),
@@ -85,8 +91,9 @@ impl ProverArgs {
         if self.risc0 {
             use amd_sev_snp_attestation_prover::RiscZeroProverConfig;
             return Ok(ProverConfig::risc0_with(RiscZeroProverConfig {
-                api_url: self.risc0_api_url.clone(),
-                api_key: self.risc0_api_key.clone(),
+                rpc_url: self.boundless_rpc_url.clone(),
+                private_key: self.boundless_private_key.clone(),
+                ..Default::default()
             }));
         }
 

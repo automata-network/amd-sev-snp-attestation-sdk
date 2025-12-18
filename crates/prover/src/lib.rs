@@ -18,7 +18,7 @@ pub use program_sp1::{ProgramSP1, SP1ProverConfig};
 #[cfg(feature = "risc0")]
 pub mod program_risc0;
 #[cfg(feature = "risc0")]
-pub use program_risc0::{ProgramRisc0, RiscZeroProverConfig};
+pub use program_risc0::{BoundlessProofType, ProgramRisc0, RiscZeroProverConfig};
 
 #[cfg(feature = "pico")]
 pub mod program_pico;
@@ -35,11 +35,8 @@ pub fn set_prover_dev_mode(_dev_mode: bool) {
 
     #[cfg(feature = "risc0")]
     if _dev_mode {
-        std::env::set_var("RISC0_PROVER", "");
         std::env::set_var("RISC0_DEV_MODE", "1");
-        std::env::set_var("RISC0_INFO", "1");
     } else {
-        std::env::set_var("RISC0_PROVER", "bonsai");
         std::env::set_var("RISC0_DEV_MODE", "0");
     }
 

@@ -5,7 +5,6 @@ members = [
     "crates/prover",
     "crates/verifier",
     "crates/risc0-methods",
-    "crates/risc0-methods/risc0-verifier",
     "crates/sp1-methods",
     "crates/sp1-methods/sp1-verifier",
     "crates/pico-methods",
@@ -36,7 +35,6 @@ debug = 1
 lto = "thin"
 
 [workspace.dependencies]
-# guest-program-lib = { path = "crates/guest-program-lib" }
 amd-sev-snp-attestation-prover = { path = "crates/prover", default-features = false }
 amd-sev-snp-attestation-verifier = { path = "crates/verifier", default-features = false }
 x509-verifier-rust-crypto = { path = "crates/x509-verifier-rust-crypto" }
@@ -54,15 +52,15 @@ serde_with = { version = "1.9.4", default-features = false }
 serde_bytes = "0.11"
 base64 = "0.22.1"
 
-risc0-zkvm = { version = "=2.2.0", default-features = false }
-risc0-build = { version = "=2.2.0"}
-bonsai-sdk = { version = "1.4.0", features = ["non_blocking"] }
-risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v2.2.1" }
+risc0-zkvm = { version = "^3.0.3", default-features = false }
+risc0-build = { version = "^3.0.3" }
+boundless-market = "1.1.0"
+risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v3.0.1" }
 
 hex = "0.4"
-sp1-zkvm = "5.0.0"
-sp1-sdk = "5.0.0"
-sp1-build = "5.0.0"
+sp1-zkvm = "^5.0.0"
+sp1-sdk = "^5.0.0"
+sp1-build = "^5.0.0"
 pico-sdk = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
 pico-vm = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
 alloy-primitives = { version = "1.2", default-features = false }
@@ -80,3 +78,4 @@ tracing = "0.1.41"
 crossbeam = "0.8.4"
 lazy_static = "1.5.0"
 reqwest = { version = "0.12.8", features = ["blocking"] }
+dotenvy = "0.15"

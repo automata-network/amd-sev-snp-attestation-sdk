@@ -12,3 +12,6 @@ target/
 
 # Pico EVM Proof Artifacts
 evm_proof_artifacts/
+
+**/.env
+**/out

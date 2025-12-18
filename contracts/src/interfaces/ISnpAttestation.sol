@@ -53,19 +53,27 @@ enum VerificationResult {
 
 /**
  * @title ZK Co-Processor Configuration Object
- * @param programIdentifier - This is the identifier of the ZK Program, required for
+ * @param latestProgramIdentifier - This is the most up-to-date identifier of the ZK Program, required for
  * verification
- * @param zkVerifier - Points to the address of the ZK Verifier contract. Ideally
+ * @param defaultZkVerifier - Points to the address of a default ZK Verifier contract. Ideally
  * this should be pointing to a universal verifier, that may support multiple proof types and/or versions.
  */
 struct ZkCoProcessorConfig {
-    bytes32 programIdentifier;
-    address zkVerifier;
+    bytes32 latestProgramIdentifier;
+    address defaultZkVerifier;
 }
 
 interface ISnpAttestation {
     // 51abd95c
     error Unknown_Zk_Coprocessor();
+    // 105efc49
+    error ZK_Route_Frozen(ZkCoProcessorType zkCoProcessor, bytes4 selector);
+    // e147b0b2
+    error Cannot_Remove_ProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier);
+    // 85ee11b0
+    error Invalid_Program_Identifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier);
+
+    event AttestationSubmitted(VerificationResult result, ZkCoProcessorType zkCoProcessor, bytes output);
 
     /**
      * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct, 3 - Pico... etc.
@@ -75,9 +83,43 @@ interface ISnpAttestation {
     function programIdentifier(ZkCoProcessorType zkCoProcessorType) external view returns (bytes32);
 
     /**
-     * @notice get the contract verifier for the provided ZK Co-processor
+     * @notice get the default contract verifier for the provided ZK Co-processor
      */
     function zkVerifier(ZkCoProcessorType zkCoProcessorType) external view returns (address);
+
+    /**
+     * @notice gets the specific ZK Verifier for the provided ZK Co-processor and proof selector
+     * @notice this function will revert if the provided selector has been frozen
+     * @notice otherwise, if a specific ZK verifier is not configured for the provided selector
+     * @notice it will return the default ZK verifier
+     */
+    function zkVerifier(ZkCoProcessorType zkCoProcessorType, bytes4 selector) external view returns (address);
+
+    /**
+     * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct, 3 - Pico... etc.
+     * @return this returns the list of all program identifiers for the specified ZK Co-processor
+     */
+    function programIdentifiers(ZkCoProcessorType zkCoProcessorType) external view returns (bytes32[] memory);
+
+    /**
+     * @notice Updates the Program Identifier for the specified ZK Co-Processor
+     */
+    function updateProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier) external;
+
+    /**
+     * @notice Deprecates a Program Identifier for the specified ZK Co-Processor
+     */
+    function removeProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier) external;
+
+    /**
+     * @notice Adds a verifier for a specific ZK Route to override the default ZK Verifier
+     */
+    function addVerifyRoute(ZkCoProcessorType zkCoProcessor, bytes4 selector, address verifier) external;
+
+    /**
+     * @notice PERMANENTLY freezes a ZK Route
+     */
+    function freezeVerifyRoute(ZkCoProcessorType zkCoProcessor, bytes4 selector) external;
 
     /**
      * @dev Returns the maximum allowed time difference for attestation timestamp validation
@@ -97,6 +139,13 @@ interface ISnpAttestation {
     function verifyAndAttestWithZKProof(
         bytes calldata output,
         ZkCoProcessorType zkCoprocessor,
+        bytes calldata proofBytes
+    ) external returns (VerifierJournal memory parsed);
+
+    function verifyAndAttestWithZKProof(
+        bytes calldata output,
+        ZkCoProcessorType zkCoprocessor,
+        bytes32 identifier,
         bytes calldata proofBytes
     ) external returns (VerifierJournal memory parsed);
 }
