@@ -41,9 +41,9 @@ function verifyAndAttestWithZKProof(
 
 | Network | ChainID  | SEVAgentAttestation                        | SP1Verifier                                | RiscZeroGroth16Verifier                    |
 | ------- | -------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
-| Sepolia | 11155111 | 0xBeb2a0f3bc9286732d2725191caF16a2C01315BF | 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B | 0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187 |
-| Hoodi   | 560048   | 0x978bE8Cd60acfA9d6F1559bE8C3209D146384bEe | 0xFE071C4336Fa6a112c906521B468382469920d2e | 0xafB31f5b70623CDF4b20Ada3f7230916A5A79df9 |
-| Automata Testnet | 1398243 | 0xdD2c371a08Dc0700795E81603F4EA0C2BAf82eA5 | 0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6 | 0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65 |
+| Sepolia | 11155111 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B | 0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187 |
+| Hoodi   | 560048   | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd | 0x32Db7dc407AC886807277636a1633A1381748DD8 |
+| Automata Testnet | 1398243 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6 | 0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65 |
 
 | ZkType | Verifier ID | 
 | ------ | ----------- | 
