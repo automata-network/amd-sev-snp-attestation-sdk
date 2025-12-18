@@ -19,6 +19,7 @@ contract Deploy is Script {
     using LibString for uint256;
 
     bytes32 constant SEV_SNP_ATTESTATION_SALT = keccak256("SEV_SNP_ATTESTATION_SALT");
+    address owner = vm.envAddress("OWNER");
 
     function readDeployed(string memory key) internal view returns (address) {
         address addr = vm.envOr(key, address(0));
@@ -90,7 +91,7 @@ contract Deploy is Script {
         console.log(block.timestamp);
         vm.startBroadcast();
         SEVAgentAttestation verifier =
-            new SEVAgentAttestation{salt: SEV_SNP_ATTESTATION_SALT}(uint64(maxTimeDiff), new bytes32[](0));
+            new SEVAgentAttestation{salt: SEV_SNP_ATTESTATION_SALT}(owner, uint64(maxTimeDiff), new bytes32[](0));
 
         vm.stopBroadcast();
         console.log("SEVAgentAttestation deployed at: ", address(verifier));

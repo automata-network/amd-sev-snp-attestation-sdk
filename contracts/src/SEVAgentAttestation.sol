@@ -38,10 +38,10 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     event ZkRouteAdded(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector, address zkVerifier);
     event ZkRouteFrozen(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector);
 
-    constructor(uint64 _maxTimeDiff, bytes32[] memory initializeTrustedCerts) {
+    constructor(address owner, uint64 _maxTimeDiff, bytes32[] memory initializeTrustedCerts) {
+        _initializeOwner(owner);
         maxTimeDiff = _maxTimeDiff;
         _initializeTrustedCerts(initializeTrustedCerts);
-        _initializeOwner(msg.sender);
     }
 
     modifier noneZkConfigCheck(ZkCoProcessorType zkCoProcessor) {

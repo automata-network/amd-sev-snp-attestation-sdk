@@ -30,7 +30,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
         bytes32[] memory initialTrustedCerts = new bytes32[](1);
         initialTrustedCerts[0] = 0x3dc78a6a9573a5e45d266144a86f05ef45829da59ff7f5552e066a67026a5ad8;
-        attestation = new SEVAgentAttestation(100000, initialTrustedCerts);
+        attestation = new SEVAgentAttestation(admin, 100000, initialTrustedCerts);
 
         bytes memory ark = vm.readFileBinary(string.concat(vm.projectRoot(), "/test/assets/ark-milan.der"));
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
