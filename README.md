@@ -47,8 +47,8 @@ function verifyAndAttestWithZKProof(
 
 | ZkType | Verifier ID | 
 | ------ | ----------- | 
-| Risc0  | 0xb3f3a99d20cd5c13c01020c5a0ffa3b9606f172a09ceed641b61a2f90a8fba5d | 
-| SP1    | 0x00bed9875ce89312fac32347c80f5b77d63af25a8d540fc441a98d753fd7d454 |
+| Risc0  | 0x280160e5f541ac4a9015ae6bb4b65e0b4791354e30ff9a393dd50c3bb24dc377 | 
+| SP1    | 0x00d2342d2400bed28302507269281dcb2c621bae91a0626796ce637f01c928d8 |
 
 ### ZK Optimization
 

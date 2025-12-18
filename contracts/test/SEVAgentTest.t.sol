@@ -55,7 +55,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
     function testSevAttestationRiscZero() public {
         // prevents InvalidTimestamp error
-        vm.warp(1765450087);
+        vm.warp(1766025108);
 
         bytes memory riscZeroOutput = abi.decode(vm.parseJson(riscZeroJson, ".raw_proof.journal"), (bytes));
         bytes memory riscZeroProof = abi.decode(vm.parseJson(riscZeroJson, ".onchain_proof"), (bytes));
@@ -68,7 +68,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
     function testSevAttestationSuccinct() public {
         // prevents InvalidTimestamp error
-        vm.warp(1765460106);
+        vm.warp(1766026012);
 
         bytes memory programOutput = abi.decode(vm.parseJson(sp1Json, ".raw_proof.journal"), (bytes));
         bytes memory proof = abi.decode(vm.parseJson(sp1Json, ".onchain_proof"), (bytes));
