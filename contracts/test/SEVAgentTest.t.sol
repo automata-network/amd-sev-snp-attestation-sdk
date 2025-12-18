@@ -35,8 +35,9 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
         bytes memory ark = vm.readFileBinary(string.concat(vm.projectRoot(), "/test/assets/ark-milan.der"));
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
 
-        ZkCoProcessorConfig memory riscZeroConfig =
-            ZkCoProcessorConfig({latestProgramIdentifier: SEV_IMAGE_RISCZERO_ID, defaultZkVerifier: address(riscZeroVerifier)});
+        ZkCoProcessorConfig memory riscZeroConfig = ZkCoProcessorConfig({
+            latestProgramIdentifier: SEV_IMAGE_RISCZERO_ID, defaultZkVerifier: address(riscZeroVerifier)
+        });
         SEVAgentAttestation(attestation).setZkConfiguration(ZkCoProcessorType.RiscZero, riscZeroConfig);
 
         address sp1Verifier = setupSp1();
@@ -83,7 +84,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
     function testSevAttestationPico() public {
         // prevents InvalidTimestamp error
         vm.warp(1761733828);
-        
+
         bytes memory publicValues = abi.decode(vm.parseJson(picoInputJson, ".publicValues"), (bytes));
         bytes32[] memory proofBytes32 = abi.decode(vm.parseJson(picoInputJson, ".proof"), (bytes32[]));
 
@@ -92,11 +93,8 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
             proofArray[i] = uint256(proofBytes32[i]);
         }
 
-        VerifierJournal memory journal = attestation.verifyAndAttestWithZKProof(
-            publicValues, 
-            ZkCoProcessorType.Pico, 
-            abi.encode(proofArray)
-        );
+        VerifierJournal memory journal =
+            attestation.verifyAndAttestWithZKProof(publicValues, ZkCoProcessorType.Pico, abi.encode(proofArray));
 
         assertEq(uint8(journal.result), uint8(VerificationResult.Success));
     }

@@ -66,9 +66,14 @@ struct ZkCoProcessorConfig {
 interface ISnpAttestation {
     // 51abd95c
     error Unknown_Zk_Coprocessor();
+    // 105efc49
     error ZK_Route_Frozen(ZkCoProcessorType zkCoProcessor, bytes4 selector);
+    // e147b0b2
     error Cannot_Remove_ProgramIdentifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier);
+    // 85ee11b0
     error Invalid_Program_Identifier(ZkCoProcessorType zkCoProcessor, bytes32 identifier);
+
+    event AttestationSubmitted(VerificationResult result, ZkCoProcessorType zkCoProcessor, bytes output);
 
     /**
      * @param zkCoProcessorType 1 - RiscZero, 2 - Succinct, 3 - Pico... etc.

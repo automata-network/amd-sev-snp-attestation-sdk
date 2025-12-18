@@ -5,8 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import "../src/SEVAgentAttestation.sol";
 
 contract Configure is Script {
-    // uint256 privateKey = vm.envUint("PRIVATE_KEY");
-
     function configureZk(uint8 zk, address verifierGateway, bytes32 programId) public {
         address attestationAddr = vm.envAddress("AMD_SEV_SNP_ATTESTATION_VERIFIER");
 

@@ -294,6 +294,8 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         }
 
         parsed = _verifyJournal(parsed);
+
+        emit AttestationSubmitted(parsed.result, zkCoprocessor, output);
     }
 
     /**
