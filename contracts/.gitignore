@@ -1,0 +1,15 @@
+# Compiler files
+cache/
+out/
+
+# Ignores broadcasts logs
+broadcast/
+
+# Docs
+docs/
+
+# Dotenv file
+.env
+
+# Deployment Keys
+keystore/

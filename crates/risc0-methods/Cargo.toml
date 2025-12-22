@@ -1,0 +1,16 @@
+[package]
+name = "risc0-methods"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lazy_static.workspace = true
+risc0-zkvm.workspace = true
+
+[build-dependencies]
+risc0-build.workspace = true
+
+[package.metadata.risc0]
+methods = ["risc0-verifier"]

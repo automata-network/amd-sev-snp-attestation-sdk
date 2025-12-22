@@ -1,0 +1,25 @@
+[package]
+name = "amd-sev-snp-attestation-verifier"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+sp1 = ["x509-verifier-rust-crypto/sp1"]
+risc0 = ["x509-verifier-rust-crypto/risc0"]
+pico = ["x509-verifier-rust-crypto/pico"]
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+byteorder.workspace = true
+serde_with.workspace = true
+serde_bytes.workspace = true
+x509-verifier-rust-crypto = { workspace = true }
+anyhow.workspace = true
+alloy-sol-types = { workspace = true, features = ["json"] }
+alloy-primitives.workspace = true
+hex.workspace = true

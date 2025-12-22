@@ -1,0 +1,24 @@
+[package]
+name = "snp-attest-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["risc0", "sp1"]
+sp1 = ["amd-sev-snp-attestation-prover/sp1"]
+risc0 = ["amd-sev-snp-attestation-prover/risc0"]
+pico = ["amd-sev-snp-attestation-prover/pico"]
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+amd-sev-snp-attestation-verifier.workspace = true
+amd-sev-snp-attestation-prover.workspace = true
+x509-verifier-rust-crypto.workspace = true
+alloy-primitives.workspace = true
+tracing-subscriber.workspace = true
+log.workspace = true
+tracing.workspace = true
+dotenvy.workspace = true

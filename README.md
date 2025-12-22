@@ -39,16 +39,16 @@ function verifyAndAttestWithZKProof(
 
 ### Deployment Information
 
-The [ImageID](https://dev.risczero.com/terminology#image-id) currently used for the DCAP RiscZero Guest Program is `2d103c1cf21571889427523c0933e1cdc99c1c9474fb6f829999964b1ce820d5`.
+| Network | ChainID  | SEVAgentAttestation                        | SP1Verifier                                | RiscZeroGroth16Verifier                    |
+| ------- | -------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
+| Sepolia | 11155111 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B | 0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187 |
+| Hoodi   | 560048   | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd | 0x32Db7dc407AC886807277636a1633A1381748DD8 |
+| Automata Testnet | 1398243 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6 | 0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65 |
 
-The [VKEY](https://docs.succinct.xyz/verification/onchain/solidity-sdk.html?#finding-your-program-vkey) currently used for the DCAP SP1 Program is
-`0000e024beed46a1ff7ae986500393a8c0f84921a0b95369b98e16295b0b05b6`.
-
-| Contract | Network | Address |
-| --- | --- | --- |
-| SEVAgentAttestation | Automata Testnet | [0xDe510E1F9258c94c5520B717210a301Cc8297F1F](https://explorer-testnet.ata.network/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F) |
-| RiscZeroVerifierRouter | | [0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65](https://explorer-testnet.ata.network/address/0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65) |
-| SP1VerifierRouter | | [0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6](https://explorer-testnet.ata.network/address/0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6) |
+| ZkType | Verifier ID | 
+| ------ | ----------- | 
+| Risc0  | 0x280160e5f541ac4a9015ae6bb4b65e0b4791354e30ff9a393dd50c3bb24dc377 | 
+| SP1    | 0x00d2342d2400bed28302507269281dcb2c621bae91a0626796ce637f01c928d8 |
 
 ### ZK Optimization
 
@@ -59,17 +59,18 @@ To get started, you need to have the following installed:
 * [Foundry](https://getfoundry.sh/)
 * [RISC Zero](https://dev.risczero.com/api/zkvm/install)
 
-##### Configuring Bonsai
+##### Configuring Boundless
 
-***Note:*** *To request an API key [complete the form here](https://bonsai.xyz/apply).*
-
-With the Bonsai proving service, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
-You can get started by setting the following environment variables with your API key and associated URL.
+With the Boundless proving network, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
+You can get started by setting the following environment variables:
 
 ```bash
-export BONSAI_API_KEY="YOUR_API_KEY" # see form linked above
-export BONSAI_API_URL="BONSAI_URL" # provided with your api key
+export BOUNDLESS_RPC_URL="https://..."  # Boundless network RPC endpoint
+export BOUNDLESS_PRIVATE_KEY="0x..."    # Your wallet private key (hex-encoded)
+export PINATA_JWT="..."                  # Pinata JWT for IPFS storage (for ELF uploads)
 ```
+
+For more information, see the [Boundless documentation](https://docs.boundless.xyz/).
 
 #### Succinct
 To get started, you need to have the following installed:
