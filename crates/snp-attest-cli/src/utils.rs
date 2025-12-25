@@ -38,11 +38,7 @@ pub struct ProverArgs {
     pub sp1_private_key: Option<String>,
 
     /// RPC URL for SP1 network connection
-    #[arg(
-        long,
-        env = "SP1_RPC_URL",
-        default_value = "https://rpc.production.succinct.xyz"
-    )]
+    #[arg(long, env = "SP1_RPC_URL")]
     pub sp1_rpc_url: Option<String>,
 
     /// RPC URL for Boundless prover network

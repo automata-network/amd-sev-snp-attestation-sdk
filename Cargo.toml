@@ -58,9 +58,9 @@ boundless-market = "1.1.0"
 risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v3.0.1" }
 
 hex = "0.4"
-sp1-zkvm = "^5.0.0"
-sp1-sdk = "^5.0.0"
-sp1-build = "^5.0.0"
+sp1-zkvm = "5.2.1"
+sp1-sdk = { version = "5.2.1", default-features = false, features = ["network"] }
+sp1-build = "5.2.1"
 pico-sdk = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
 pico-vm = { git = "https://github.com/brevis-network/pico", tag = "v1.1.6" }
 alloy-primitives = { version = "1.2", default-features = false }
