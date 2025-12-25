@@ -34,7 +34,7 @@ impl TryFrom<SP1ProverConfig> for RemoteProverConfig {
     type Error = anyhow::Error;
     fn try_from(value: SP1ProverConfig) -> anyhow::Result<Self> {
         Ok(RemoteProverConfig {
-            api_url: value.rpc_url.ok_or_else(|| anyhow!("missing rpc url"))?,
+            api_url: value.rpc_url,
             api_key: value
                 .private_key
                 .ok_or_else(|| anyhow!("missing private key"))?,
@@ -136,10 +136,11 @@ where
 
     fn upload_image(&self, cfg: &RemoteProverConfig) -> anyhow::Result<()> {
         block_on(async {
-            let prover = NetworkProverBuilder::default()
-                .private_key(&cfg.api_key)
-                .rpc_url(&cfg.api_url)
-                .build();
+            let mut builder = NetworkProverBuilder::default().private_key(&cfg.api_key);
+            if let Some(api_url) = &cfg.api_url {
+                builder = builder.rpc_url(&api_url);
+            }
+            let prover = builder.build();
             prover.register_program(&self.vk, self.elf).await?;
             Ok(())
         })
