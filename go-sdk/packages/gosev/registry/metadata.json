@@ -1,0 +1,29 @@
+{
+  "eth_sepolia": {
+    "name": "Ethereum Sepolia",
+    "chain_id": 11155111,
+    "testnet": true,
+    "rpc_endpoints": ["https://1rpc.io/sepolia", "https://rpc.sepolia.ethpandaops.io", "https://sepolia.drpc.org"],
+    "gas_price_hint_wei": 700000000,
+    "block_explorers": ["https://sepolia.etherscan.io/"]
+  },
+  "eth_hoodi": {
+    "name": "Ethereum Hoodi",
+    "chain_id": 560048,
+    "testnet": true,
+    "rpc_endpoints": ["https://1rpc.io/hoodi", "https://rpc.hoodi.ethpandaops.io"],
+    "gas_price_hint_wei": 200000000000,
+    "block_explorers": ["https://hoodi.etherscan.io/"]
+  },
+  "automata_testnet": {
+    "name": "Automata Testnet",
+    "chain_id": 1398243,
+    "testnet": true,
+    "rpc_endpoints": ["https://1rpc.io/ata/testnet", "https://rpc-testnet.ata.network"],
+    "gas_price_hint_wei": 300,
+    "block_explorers": ["https://explorer-testnet.ata.network/"]
+  },
+  "default": {
+    "network_key": "automata_testnet"
+  }
+}
