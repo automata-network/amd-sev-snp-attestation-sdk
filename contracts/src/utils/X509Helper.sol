@@ -26,7 +26,7 @@ enum SignatureAlgorithm {
  * @notice This is a simplified structure of a DER-decoded X509 Certificate
  * @dev The Extension sequence is a custom ASN.1 Sequence that needs to be
  * @dev parsed further in a more specialized contract.
- * @dev IMPORTANT! Post-processing of the public key and signature bytes may be necesary
+ * @dev IMPORTANT! Post-processing of the public key and signature bytes may be necessary
  */
 struct X509CertObj {
     uint256 serialNumber;
@@ -168,7 +168,7 @@ library X509Helper {
     /// 1. tbs
     /// - 1a. version
     /// - 1b. serial number
-    /// - 1c. siganture algorithm
+    /// - 1c. signature algorithm
     /// - 1d. issuer
     /// - - 1d(a). common name
     /// - - 1d(b). organization name
@@ -318,7 +318,7 @@ library X509Helper {
         // Step 2: Extract the signature
         // at this point, the pointer should be pointing to the bitstring
         // the first byte is a 0x03 tag, indicating that the following content is of bitstring type
-        // the sceond byte is just the length of the bitstring
+        // the second byte is just the length of the bitstring
         // the third byte is 0x00, represents End-of-Content (EOC)
         // this is valid, because the signature of a X509 certificate is conventionally placed
         // as the last element of the entire certificate

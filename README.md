@@ -45,10 +45,24 @@ function verifyAndAttestWithZKProof(
 | Hoodi   | 560048   | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd | 0x32Db7dc407AC886807277636a1633A1381748DD8 |
 | Automata Testnet | 1398243 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6 | 0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65 |
 
-| ZkType | Verifier ID | 
-| ------ | ----------- | 
-| Risc0  | 0x280160e5f541ac4a9015ae6bb4b65e0b4791354e30ff9a393dd50c3bb24dc377 | 
-| SP1    | 0x00d2342d2400bed28302507269281dcb2c621bae91a0626796ce637f01c928d8 |
+| ZkType | Program ID |
+| ------ | ----------- |
+| Risc0  | 0x280160e5f541ac4a9015ae6bb4b65e0b4791354e30ff9a393dd50c3bb24dc377 |
+| SP1    | 0x00d2342d2400bed28302507269281dcb2c621bae91a0626796ce637f01c928d8 (BN254); 0x691a1692002fb4a0604a0e4d1281dcb26310dd744681899e2d9cc6fe01c928d8 (BabyBear 32-bit BE word) |
+
+> [!NOTE] Why are there BabyBear and BN254 Program IDs?
+>
+> SP1 program identifiers (vkeys) exist in two representations to serve different purposes in the zero-knowledge proof workflow:
+>
+> - **BN254 Representation** (`vkey.bytes32_raw()`): This is the on-chain program identifier used for proof verification. The BN254 elliptic curve field is required for on-chain Groth16/Plonk proof verification, making this the canonical identifier for smart contract interactions.
+>
+> - **BabyBear Representation** (`vkey.hash_u32()`): This is the off-chain program identifier used by zkVM explorers, proof aggregation systems, and development tooling. The BabyBear field is native to SP1's internal arithmetic, making it more efficient for off-chain operations and proof composition.
+>
+> **Important Note on Endianness:** The BabyBear values shown in the deployment table above are big-endian (BE) encoded within each 4-byte word for human readability and cross-tool compatibility. The SP1 zkVM internally uses little-endian (LE) encoding of the same BabyBear representation for computation.
+>
+> When integrating with this SDK:
+> - Use the **BN254 representation** when configuring on-chain verifiers or calling verification contracts
+> - Use the **BabyBear representation** when querying zkVM explorers or composing proofs
 
 ### ZK Optimization
 
@@ -76,7 +90,7 @@ For more information, see the [Boundless documentation](https://docs.boundless.x
 To get started, you need to have the following installed:
 
 * [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-* [SP1](https://docs.succinct.xyz/getting-started/install.html)
+* [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
 * [Docker](https://docs.docker.com/get-started/get-docker/)
 
 ***Note:*** *SP1 5.2 includes mainnet support by default. To request a whitelisted address for the SP1 production network, [complete the form here](https://docs.google.com/forms/d/e/1FAIpQLSd-X9uH7G0bvXH_kjptnQtNil8L4dumrVPpFE4t8Ci1XT1GaQ/viewform).*
