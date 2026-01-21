@@ -79,14 +79,15 @@ To get started, you need to have the following installed:
 * [SP1](https://docs.succinct.xyz/getting-started/install.html)
 * [Docker](https://docs.docker.com/get-started/get-docker/)
 
-***Note:*** *To request an whitelisted address, [complete the form here](https://docs.google.com/forms/d/e/1FAIpQLSd-X9uH7G0bvXH_kjptnQtNil8L4dumrVPpFE4t8Ci1XT1GaQ/viewform).*
+***Note:*** *SP1 5.2 includes mainnet support by default. To request a whitelisted address for the SP1 production network, [complete the form here](https://docs.google.com/forms/d/e/1FAIpQLSd-X9uH7G0bvXH_kjptnQtNil8L4dumrVPpFE4t8Ci1XT1GaQ/viewform).*
 
 With the SP1 Proving Network, you can produce a [Groth16 SNARK proof] or [Plonk SNARK proof] that is verifiable on-chain.
-You can get started by setting the following environment variables with your whitelisted address and associated Proving Network.
+You can get started by setting the following environment variables with your whitelisted address:
 
 ```bash
 export SP1_PROVER=network
-export SP1_PRIVATE_KEY=""
+export SP1_PRIVATE_KEY="0x..."  # Your whitelisted private key
+# SP1_RPC_URL is optional - SP1 5.2 defaults to production mainnet endpoint
 ```
 
 ## Acknowledgements

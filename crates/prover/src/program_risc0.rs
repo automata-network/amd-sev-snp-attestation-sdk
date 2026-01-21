@@ -86,7 +86,7 @@ impl TryFrom<RiscZeroProverConfig> for RemoteProverConfig {
     type Error = anyhow::Error;
     fn try_from(value: RiscZeroProverConfig) -> anyhow::Result<Self> {
         Ok(RemoteProverConfig {
-            api_url: value.rpc_url.ok_or_else(|| anyhow!("missing BOUNDLESS_RPC_URL"))?,
+            api_url: value.rpc_url,
             api_key: value.private_key.ok_or_else(|| anyhow!("missing BOUNDLESS_PRIVATE_KEY"))?,
         })
     }
