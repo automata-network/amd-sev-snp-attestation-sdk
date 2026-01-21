@@ -5,7 +5,7 @@ use rand::RngCore;
 use std::{fs::File, fs::OpenOptions, io::Write, path::PathBuf};
 
 /// Generates 64 bytes of random data
-/// Always guaranted to return something (ie, unwrap() can be safely called)
+/// Always guaranteed to return something (ie, unwrap() can be safely called)
 pub fn generate_random_data() -> Option<[u8; 64]> {
     let mut data = [0u8; 64];
     rand::thread_rng().fill_bytes(&mut data);
