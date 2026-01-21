@@ -76,7 +76,7 @@ For more information, see the [Boundless documentation](https://docs.boundless.x
 To get started, you need to have the following installed:
 
 * [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-* [SP1](https://docs.succinct.xyz/getting-started/install.html)
+* [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
 * [Docker](https://docs.docker.com/get-started/get-docker/)
 
 ***Note:*** *SP1 5.2 includes mainnet support by default. To request a whitelisted address for the SP1 production network, [complete the form here](https://docs.google.com/forms/d/e/1FAIpQLSd-X9uH7G0bvXH_kjptnQtNil8L4dumrVPpFE4t8Ci1XT1GaQ/viewform).*
