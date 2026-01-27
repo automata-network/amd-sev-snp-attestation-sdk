@@ -116,7 +116,7 @@ impl SevSnp {
     /// This is because the VLEK cert is not available from KDS.
     ///
     /// # Returns:
-    /// /// - Ok: HashMap containing the DER certificates
+    /// - Ok: HashMap containing the DER certificates
     /// - Error: Problems with certificate retrieval
     /// The HashMap will contain the following keys:
     /// - "ARK": AMD Root Key
@@ -240,7 +240,7 @@ impl SevSnp {
     /// In the Regular Attestation workflow, all certificates used to verify the attestation report are
     /// fetched from the AMD Key Distribution Service (KDS).
     /// Note that when the signer is a VLEK, the VLEK certificate must be provided as it cannot be queried from the KDS.
-    /// Afterwhich, only the ARK and ASK are retrieved from the KDS.
+    /// After which, only the ARK and ASK are retrieved from the KDS.
     fn regular_attestation_workflow(
         &self,
         report: &AttestationReport,
