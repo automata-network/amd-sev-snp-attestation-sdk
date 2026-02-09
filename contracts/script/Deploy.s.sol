@@ -91,7 +91,7 @@ contract Deploy is Script {
         console.log(block.timestamp);
         vm.startBroadcast();
         SEVAgentAttestation verifier =
-            new SEVAgentAttestation{salt: SEV_SNP_ATTESTATION_SALT}(owner, uint64(maxTimeDiff), new bytes32[](0));
+            new SEVAgentAttestation{salt: SEV_SNP_ATTESTATION_SALT}(owner, uint64(maxTimeDiff));
 
         vm.stopBroadcast();
         console.log("SEVAgentAttestation deployed at: ", address(verifier));

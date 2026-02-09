@@ -9,18 +9,16 @@ import {IPicoVerifier} from "./pico/IPicoVerifier.sol";
 import {
     ProcessorType,
     ISnpAttestation,
-    VerifierInput,
     VerifierJournal,
     ZkCoProcessorType,
     ZkCoProcessorConfig,
     VerificationResult
 } from "./interfaces/ISnpAttestation.sol";
 
-import {CertCacheBase} from "./bases/CertCacheBase.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
+contract SEVAgentAttestation is Ownable, ISnpAttestation {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     // use this constant to indicate that the ZK Route has been frozen
@@ -30,6 +28,9 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     mapping(ZkCoProcessorType => EnumerableSet.Bytes32Set) _programIdConfig;
     mapping(ZkCoProcessorType => mapping(bytes4 selector => address zkVerifier)) _zkVerifierConfig;
 
+    /// @dev Mapping of processor models to their trusted ARK certificate hashes
+    mapping(ProcessorType => bytes32) internal _rootCerts;
+
     /// @dev Maximum allowed time difference in seconds for attestation timestamp validation
     uint64 public maxTimeDiff;
 
@@ -38,10 +39,9 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     event ZkRouteAdded(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector, address zkVerifier);
     event ZkRouteFrozen(ZkCoProcessorType indexed zkCoProcessor, bytes4 selector);
 
-    constructor(address owner, uint64 _maxTimeDiff, bytes32[] memory initializeTrustedCerts) {
+    constructor(address owner, uint64 _maxTimeDiff) {
         _initializeOwner(owner);
         maxTimeDiff = _maxTimeDiff;
-        _initializeTrustedCerts(initializeTrustedCerts);
     }
 
     modifier noneZkConfigCheck(ZkCoProcessorType zkCoProcessor) {
@@ -66,30 +66,12 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     }
 
     /**
-     * @dev Revokes a trusted intermediate certificate
-     * @param _certHash Hash of the certificate to revoke
-     *
-     * Requirements:
-     * - Only callable by contract owner
-     * - Certificate must exist in the trusted intermediate certificates set
-     *
-     * This function allows the owner to revoke compromised intermediate certificates
-     * without affecting the root certificate or other trusted certificates.
-     */
-    function revokeCertCache(bytes32 _certHash) external override onlyOwner {
-        _revokeCertCache(_certHash);
-    }
-
-    /**
      * @dev Sets the trusted root certificate hash
      * @param _processorModel Specify the Processor Model for the Root Certificate (ARK)
-     * @param _rootCert Hash of the AWS Nitro Enclave root certificate
+     * @param _rootCert Hash of the root certificate (ARK)
      *
      * Requirements:
      * - Only callable by contract owner
-     *
-     * The root certificate serves as the trust anchor for all certificate chain validations.
-     * This should be set to the hash of AWS's root certificate for Nitro Enclaves.
      */
     function setRootCert(ProcessorType _processorModel, bytes32 _rootCert) external override onlyOwner {
         _setRootCert(_processorModel, _rootCert);
@@ -220,15 +202,6 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
         emit ZkRouteFrozen(zkCoProcessor, selector);
     }
 
-    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata reportCerts)
-        external
-        view
-        override
-        returns (uint8[] memory)
-    {
-        return _checkTrustedIntermediateCerts(processorModels, reportCerts);
-    }
-
     /**
      * @notice Verifies attestation using ZK proof with the latest program identifier
      */
@@ -281,7 +254,7 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
 
         require(verifierAddr != address(0), "ZK Verifier is not configured");
 
-        parsed = abi.decode(output, (VerifierJournal));
+        parsed = _parseJournal(output);
 
         if (zkCoprocessor == ZkCoProcessorType.RiscZero) {
             IRiscZeroVerifier(verifierAddr).verify(proofBytes, identifier, sha256(output));
@@ -299,51 +272,78 @@ contract SEVAgentAttestation is Ownable, CertCacheBase, ISnpAttestation {
     }
 
     /**
+     * @dev Parses a raw bytes journal into a VerifierJournal struct
+     * @param data Raw calldata bytes in the format:
+     *   - u8 verificationResult (1 byte)
+     *   - u64 timestamp (8 bytes, big-endian)
+     *   - u8 processorModel (1 byte)
+     *   - u32 certSize (4 bytes, big-endian)
+     *   - bytes32[certSize] certs (32 * certSize bytes)
+     *   - uint160[certSize] certSerials (20 * certSize bytes)
+     *   - bytes32 reportHash (32 bytes)
+     */
+    function _parseJournal(bytes calldata data) internal pure returns (VerifierJournal memory journal) {
+        uint256 offset = 0;
+
+        journal.result = VerificationResult(uint8(data[offset]));
+        offset += 1;
+
+        journal.timestamp = uint64(bytes8(data[offset:offset + 8]));
+        offset += 8;
+
+        journal.processorModel = uint8(data[offset]);
+        offset += 1;
+
+        uint32 certSize = uint32(bytes4(data[offset:offset + 4]));
+        offset += 4;
+
+        journal.certs = new bytes32[](certSize);
+        for (uint256 i = 0; i < certSize; i++) {
+            journal.certs[i] = bytes32(data[offset:offset + 32]);
+            offset += 32;
+        }
+
+        journal.certSerials = new uint160[](certSize);
+        for (uint256 i = 0; i < certSize; i++) {
+            journal.certSerials[i] = uint160(bytes20(data[offset:offset + 20]));
+            offset += 20;
+        }
+
+        journal.reportHash = bytes32(data[offset:offset + 32]);
+    }
+
+    /**
      * @dev Internal function to verify and validate a journal entry
      * @param journal Verification journal to validate
      * @return Updated journal with final verification result
      *
-     * This function performs comprehensive validation:
+     * Validation flow:
      * 1. Checks if the initial ZK verification was successful
-     * 2. Validates the root certificate matches the trusted root
-     * 3. Ensures all trusted certificates are still valid (not revoked)
-     * 4. Validates the attestation timestamp is within acceptable range
-     * 5. Caches newly discovered certificates for future use
-     *
-     * The timestamp validation converts milliseconds to seconds and checks:
-     * - Attestation is not too old (timestamp + maxTimeDiff >= block.timestamp)
-     * - Attestation is not from the future (timestamp <= block.timestamp)
+     * 2. Validates the root certificate matches the trusted root for the processor model
+     * 3. Validates the attestation timestamp is within acceptable range
      */
-    function _verifyJournal(VerifierJournal memory journal) internal returns (VerifierJournal memory) {
+    function _verifyJournal(VerifierJournal memory journal) internal view returns (VerifierJournal memory) {
         if (journal.result != VerificationResult.Success) {
             return journal;
         }
-        if (journal.trustedCertsPrefixLen == 0) {
+        if (journal.certs.length == 0) {
             journal.result = VerificationResult.RootCertNotTrusted;
             return journal;
         }
-        // Check every trusted certificate to ensure none have been revoked
-        for (uint256 i = 0; i < journal.trustedCertsPrefixLen; i++) {
-            bytes32 certHash = journal.certs[i];
-            bytes32 rootCert = _rootCerts[ProcessorType(journal.processorModel)];
-            if (i == 0) {
-                if (certHash != rootCert) {
-                    journal.result = VerificationResult.RootCertNotTrusted;
-                    return journal;
-                }
-                continue;
-            }
-            if (!trustedIntermediateCerts[certHash]) {
-                journal.result = VerificationResult.IntermediateCertsNotTrusted;
-                return journal;
-            }
+        bytes32 rootCert = _rootCerts[ProcessorType(journal.processorModel)];
+        if (journal.certs[0] != rootCert) {
+            journal.result = VerificationResult.RootCertNotTrusted;
+            return journal;
         }
         uint64 timestamp = journal.timestamp;
         if (timestamp + maxTimeDiff < block.timestamp || timestamp > block.timestamp) {
             journal.result = VerificationResult.InvalidTimestamp;
             return journal;
         }
-        _cacheNewCert(journal.certs, journal.trustedCertsPrefixLen);
         return journal;
+    }
+
+    function _setRootCert(ProcessorType _processorModel, bytes32 _rootCert) internal {
+        _rootCerts[_processorModel] = _rootCert;
     }
 }

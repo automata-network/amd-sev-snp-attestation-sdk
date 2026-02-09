@@ -8,9 +8,9 @@ edition.workspace = true
 doctest = false
 
 [features]
-sp1 = ["x509-verifier-rust-crypto/sp1"]
-risc0 = ["x509-verifier-rust-crypto/risc0"]
-pico = ["x509-verifier-rust-crypto/pico"]
+sp1 = ["x509-verifier-rust-crypto/sp1", "dep:tiny-keccak_sp1"]
+risc0 = ["x509-verifier-rust-crypto/risc0", "dep:tiny-keccak_risc0"]
+pico = ["x509-verifier-rust-crypto/pico", "dep:tiny-keccak_pico"]
 
 [dependencies]
 serde_json.workspace = true
@@ -23,3 +23,8 @@ anyhow.workspace = true
 alloy-sol-types = { workspace = true, features = ["json"] }
 alloy-primitives.workspace = true
 hex.workspace = true
+
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tiny-keccak_risc0 = { git = "https://github.com/risc0/tiny-keccak", tag = "tiny-keccak/v2.0.2-risczero.0", package = "tiny-keccak", features = ["keccak"], optional = true }
+tiny-keccak_sp1 = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0", package = "tiny-keccak", features = ["keccak"], optional = true }
+tiny-keccak_pico = { git = "https://github.com/brevis-network/tiny-keccak", tag = "pico-patch-v1.0.0-keccak-v2.0.2", package = "tiny-keccak", features = ["keccak"], optional = true }

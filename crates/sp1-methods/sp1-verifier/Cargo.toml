@@ -5,6 +5,8 @@ authors = ["Automata Team"]
 edition = "2021"
 license = "Apache-2.0"
 
+[workspace]
+
 [dependencies]
 sp1-zkvm = { version = "5.2.1" }
 amd-sev-snp-attestation-verifier = { path = "../../verifier/", features = ["sp1"] }

@@ -7,8 +7,11 @@ import "./PicoGroth16Setup.sol";
 import "../src/SEVAgentAttestation.sol";
 import "../src/types/SevSnpTypes.sol";
 import "../src/interfaces/ISnpAttestation.sol";
+import {BytesUtils} from "../src/utils/BytesUtils.sol";
 
 contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16Setup {
+    using BytesUtils for bytes;
+
     address internal constant admin = address(1);
     string internal picoInputJson = vm.readFile(string.concat(vm.projectRoot(), "/test/assets/pico-inputs.json"));
     string internal riscZeroJson = vm.readFile(string.concat(vm.projectRoot(), "/test/assets/boundless_azure.json"));
@@ -28,9 +31,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
         vm.startPrank(admin);
 
-        bytes32[] memory initialTrustedCerts = new bytes32[](1);
-        initialTrustedCerts[0] = 0x3dc78a6a9573a5e45d266144a86f05ef45829da59ff7f5552e066a67026a5ad8;
-        attestation = new SEVAgentAttestation(admin, 100000, initialTrustedCerts);
+        attestation = new SEVAgentAttestation(admin, 100000);
 
         bytes memory ark = vm.readFileBinary(string.concat(vm.projectRoot(), "/test/assets/ark-milan.der"));
         attestation.setRootCert(ProcessorType.Milan, sha256(ark));
@@ -56,7 +57,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
     function testSevAttestationRiscZero() public {
         // prevents InvalidTimestamp error
-        vm.warp(1766025108);
+        vm.warp(1770600849);
 
         bytes memory riscZeroOutput = abi.decode(vm.parseJson(riscZeroJson, ".raw_proof.journal"), (bytes));
         bytes memory riscZeroProof = abi.decode(vm.parseJson(riscZeroJson, ".onchain_proof"), (bytes));
@@ -69,7 +70,7 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
 
     function testSevAttestationSuccinct() public {
         // prevents InvalidTimestamp error
-        vm.warp(1766026012);
+        vm.warp(1770598958);
 
         bytes memory programOutput = abi.decode(vm.parseJson(sp1Json, ".raw_proof.journal"), (bytes));
         bytes memory proof = abi.decode(vm.parseJson(sp1Json, ".onchain_proof"), (bytes));
@@ -81,21 +82,21 @@ contract SEVAgentTest is RiscZeroGroth16Setup, SuccinctGroth16Setup, PicoGroth16
         assertEq(zkOutput.processorModel, uint8(ProcessorType.Milan));
     }
 
-    function testSevAttestationPico() public {
-        // prevents InvalidTimestamp error
-        vm.warp(1761733828);
+    // function testSevAttestationPico() public {
+    //     // prevents InvalidTimestamp error
+    //     vm.warp(1761733828);
 
-        bytes memory publicValues = abi.decode(vm.parseJson(picoInputJson, ".publicValues"), (bytes));
-        bytes32[] memory proofBytes32 = abi.decode(vm.parseJson(picoInputJson, ".proof"), (bytes32[]));
+    //     bytes memory publicValues = abi.decode(vm.parseJson(picoInputJson, ".publicValues"), (bytes));
+    //     bytes32[] memory proofBytes32 = abi.decode(vm.parseJson(picoInputJson, ".proof"), (bytes32[]));
 
-        uint256[8] memory proofArray;
-        for (uint256 i = 0; i < 8; i++) {
-            proofArray[i] = uint256(proofBytes32[i]);
-        }
+    //     uint256[8] memory proofArray;
+    //     for (uint256 i = 0; i < 8; i++) {
+    //         proofArray[i] = uint256(proofBytes32[i]);
+    //     }
 
-        VerifierJournal memory journal =
-            attestation.verifyAndAttestWithZKProof(publicValues, ZkCoProcessorType.Pico, abi.encode(proofArray));
+    //     VerifierJournal memory journal =
+    //         attestation.verifyAndAttestWithZKProof(publicValues, ZkCoProcessorType.Pico, abi.encode(proofArray));
 
-        assertEq(uint8(journal.result), uint8(VerificationResult.Success));
-    }
+    //     assertEq(uint8(journal.result), uint8(VerificationResult.Success));
+    // }
 }

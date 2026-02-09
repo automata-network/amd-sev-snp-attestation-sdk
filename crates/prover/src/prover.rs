@@ -225,7 +225,6 @@ impl AmdSevSnpProver {
         let cert_chain = CertChain::parse_rev(&vek_certs)?;
         cert_chain.verify_chain()?;
         cert_chain.check_valid(timestamp)?;
-        let mut trusted_certs_prefix_len = 2;
         if let Some(contract) = &self.contract {
             let program_id = block_on(contract.program_id(self.verifier.zktype()))?;
             let verify_result = self.get_program_id().verify(&program_id).with_context(|| {
@@ -241,18 +240,11 @@ impl AmdSevSnpProver {
                     tracing::warn!("Program ID verification failed: {:?}.", verify_err);
                 }
             }
-            let processor_model = report.get_cpu_codename()?;
-            let result = block_on(contract.batch_query_cert_cache(
-                vec![processor_model],
-                vec![cert_chain.digest().to_vec()],
-            ))?;
-            trusted_certs_prefix_len = result[0];
         } else {
             tracing::warn!("Contract not provided, may lead to attestation failures and increased costs. Not recommended for production.");
         }
         Ok(VerifierInput {
             timestamp,
-            trustedCertsPrefixLen: trusted_certs_prefix_len,
             rawReport: raw_report,
             vekDerChain: cert_chain.to_ders(),
         })

@@ -14,7 +14,7 @@ use crate::{ProcessorType, VerificationResult, VerifierJournal};
 #[serde(rename_all = "camelCase")]
 pub struct VerifierJournalWrapper {
     /// Verification result as a string: "Success", "RootCertNotTrusted",
-    /// "IntermediateCertsNotTrusted", or "InvalidTimestamp"
+    /// or "InvalidTimestamp"
     pub result: String,
 
     /// Attestation timestamp (Unix epoch seconds)
@@ -23,17 +23,14 @@ pub struct VerifierJournalWrapper {
     /// Processor model as a string: "Milan", "Genoa", "Bergamo", or "Siena"
     pub processor_model: String,
 
-    /// Raw attestation report (1184 bytes), hex-encoded with "0x" prefix
-    pub raw_report: String,
+    /// Keccak256 hash of the raw attestation report (bytes32), hex-encoded with "0x" prefix
+    pub report_hash: String,
 
     /// Certificate hashes (bytes32[]), each hex-encoded with "0x" prefix
     pub certs: Vec<String>,
 
     /// Certificate serial numbers (uint160[]), each hex-encoded with "0x" prefix
     pub cert_serials: Vec<String>,
-
-    /// Number of trusted certificate chain prefix elements
-    pub trusted_certs_prefix_len: u8,
 }
 
 impl From<VerifierJournal> for VerifierJournalWrapper {
@@ -41,7 +38,6 @@ impl From<VerifierJournal> for VerifierJournalWrapper {
         let result = match journal.result {
             VerificationResult::Success => "Success",
             VerificationResult::RootCertNotTrusted => "RootCertNotTrusted",
-            VerificationResult::IntermediateCertsNotTrusted => "IntermediateCertsNotTrusted",
             VerificationResult::InvalidTimestamp => "InvalidTimestamp",
             _ => "Unknown",
         }
@@ -56,7 +52,7 @@ impl From<VerifierJournal> for VerifierJournalWrapper {
         }
         .to_string();
 
-        let raw_report = format!("0x{}", hex::encode(&journal.rawReport));
+        let report_hash = format!("0x{}", hex::encode(journal.reportHash));
 
         let certs = journal
             .certs
@@ -74,10 +70,9 @@ impl From<VerifierJournal> for VerifierJournalWrapper {
             result,
             timestamp: journal.timestamp,
             processor_model,
-            raw_report,
+            report_hash,
             certs,
             cert_serials,
-            trusted_certs_prefix_len: journal.trustedCertsPrefixLen,
         }
     }
 }
@@ -91,7 +86,6 @@ impl TryFrom<VerifierJournalWrapper> for VerifierJournal {
         let result = match wrapper.result.as_str() {
             "Success" => VerificationResult::Success,
             "RootCertNotTrusted" => VerificationResult::RootCertNotTrusted,
-            "IntermediateCertsNotTrusted" => VerificationResult::IntermediateCertsNotTrusted,
             "InvalidTimestamp" => VerificationResult::InvalidTimestamp,
             _ => anyhow::bail!("Unknown verification result: {}", wrapper.result),
         };
@@ -104,8 +98,17 @@ impl TryFrom<VerifierJournalWrapper> for VerifierJournal {
             _ => anyhow::bail!("Unknown processor model: {}", wrapper.processor_model),
         };
 
-        let raw_report = hex::decode(wrapper.raw_report.trim_start_matches("0x"))
-            .map_err(|e| anyhow::anyhow!("Failed to decode raw_report: {}", e))?;
+        let report_hash_bytes = hex::decode(wrapper.report_hash.trim_start_matches("0x"))
+            .map_err(|e| anyhow::anyhow!("Failed to decode report_hash: {}", e))?;
+        if report_hash_bytes.len() != 32 {
+            anyhow::bail!(
+                "Invalid report_hash length: expected 32, got {}",
+                report_hash_bytes.len()
+            );
+        }
+        let mut report_hash_arr = [0u8; 32];
+        report_hash_arr.copy_from_slice(&report_hash_bytes);
+        let report_hash = FixedBytes(report_hash_arr);
 
         let certs: Result<Vec<FixedBytes<32>>, _> = wrapper
             .certs
@@ -146,10 +149,9 @@ impl TryFrom<VerifierJournalWrapper> for VerifierJournal {
             result,
             timestamp: wrapper.timestamp,
             processorModel: processor_model,
-            rawReport: raw_report.into(),
+            reportHash: report_hash,
             certs,
             certSerials: cert_serials,
-            trustedCertsPrefixLen: wrapper.trusted_certs_prefix_len,
         })
     }
 }
@@ -166,10 +168,9 @@ mod tests {
             result: VerificationResult::Success,
             timestamp: 1234567890,
             processorModel: ProcessorType::Genoa as u8,
-            rawReport: vec![0u8; 1184].into(),
+            reportHash: FixedBytes([0xabu8; 32]),
             certs: vec![FixedBytes([1u8; 32]), FixedBytes([2u8; 32])],
             certSerials: vec![Uint::from(12345u64), Uint::from(67890u64)],
-            trustedCertsPrefixLen: 2,
         };
 
         let wrapper: VerifierJournalWrapper = journal.clone().into();
@@ -178,9 +179,8 @@ mod tests {
         assert_eq!(journal.result, roundtrip.result);
         assert_eq!(journal.timestamp, roundtrip.timestamp);
         assert_eq!(journal.processorModel, roundtrip.processorModel);
-        assert_eq!(journal.rawReport, roundtrip.rawReport);
+        assert_eq!(journal.reportHash, roundtrip.reportHash);
         assert_eq!(journal.certs, roundtrip.certs);
         assert_eq!(journal.certSerials, roundtrip.certSerials);
-        assert_eq!(journal.trustedCertsPrefixLen, roundtrip.trustedCertsPrefixLen);
     }
 }

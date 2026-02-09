@@ -164,30 +164,4 @@ impl SnpVerifierContract {
         Ok(self.call(&maxTimeDiffCall {}).await?)
     }
 
-    pub async fn batch_query_cert_cache(
-        &self,
-        processor_models: Vec<ProcessorType>,
-        certs_digests: Vec<Vec<B256>>,
-    ) -> anyhow::Result<Vec<u8>> {
-        if certs_digests.is_empty() {
-            return Ok(vec![]);
-        }
-
-        for report_certs in &certs_digests {
-            let len = report_certs.len();
-            if len == 0 || len > 8 {
-                return Err(anyhow!(
-                    "Too many certificate chains provided, maximum is 8, got: {len}"
-                ));
-            }
-        }
-
-        let result = self
-            .call(&checkTrustedIntermediateCertsCall {
-                processorModels: processor_models,
-                _reportCerts: certs_digests,
-            })
-            .await?;
-        Ok(result)
-    }
 }

@@ -7,10 +7,24 @@ use std::path::PathBuf;
 const RISC0_VERIFIER: &str = "risc0-verifier";
 
 fn main() {
+    println!("cargo::rerun-if-env-changed=FORCE_BUILD");
+
+    let force_build = std::env::var("FORCE_BUILD")
+        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true"))
+        .unwrap_or(false);
+
     let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let elf_dir = manifest_dir.join("elf");
     let elf_path = elf_dir.join(format!("{}-elf", RISC0_VERIFIER));
+
+    if force_build && elf_path.exists() {
+        println!(
+            "cargo::warning=FORCE_BUILD set, removing existing ELF at {:?}",
+            elf_path
+        );
+        fs::remove_file(&elf_path).expect("Failed to remove existing ELF");
+    }
 
     let final_elf_path = if elf_path.exists() {
         println!(
