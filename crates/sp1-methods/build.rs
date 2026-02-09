@@ -2,7 +2,21 @@ use sp1_build::{build_program_with_args, BuildArgs};
 use std::path::Path;
 
 fn main() {
+    println!("cargo::rerun-if-env-changed=FORCE_BUILD");
+
+    let force_build = std::env::var("FORCE_BUILD")
+        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true"))
+        .unwrap_or(false);
+
     let elf_path = "./elf/sp1-verifier-elf";
+
+    if force_build && Path::new(elf_path).exists() {
+        println!(
+            "cargo::warning=FORCE_BUILD set, removing existing ELF at {}",
+            elf_path
+        );
+        std::fs::remove_file(elf_path).expect("Failed to remove existing ELF");
+    }
 
     if Path::new(elf_path).exists() {
         println!(

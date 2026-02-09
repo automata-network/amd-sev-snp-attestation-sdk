@@ -6,7 +6,6 @@ members = [
     "crates/verifier",
     "crates/risc0-methods",
     "crates/sp1-methods",
-    "crates/sp1-methods/sp1-verifier",
     "crates/pico-methods",
     "crates/pico-methods/pico-verifier",
     "crates/sev-snp",

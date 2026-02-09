@@ -14,7 +14,6 @@ enum ProcessorType {
 
 struct VerifierInput {
     uint64 timestamp;
-    uint8 trustedCertsPrefixLen;
     bytes rawReport;
     bytes[] vekDerChain;
 }
@@ -23,10 +22,9 @@ struct VerifierJournal {
     VerificationResult result;
     uint64 timestamp;
     uint8 processorModel;
-    bytes rawReport;
+    bytes32 reportHash;
     bytes32[] certs;
     uint160[] certSerials;
-    uint8 trustedCertsPrefixLen;
 }
 
 enum ZkCoProcessorType {
@@ -45,8 +43,6 @@ enum VerificationResult {
     Success,
     // Root certificate is not in the trusted set
     RootCertNotTrusted,
-    // One or more intermediate certificates are not trusted
-    IntermediateCertsNotTrusted,
     // Attestation timestamp is outside acceptable range
     InvalidTimestamp
 }
@@ -128,13 +124,8 @@ interface ISnpAttestation {
     function maxTimeDiff() external view returns (uint64);
 
     function rootCerts(ProcessorType processorModel) external view returns (bytes32);
-    function revokeCertCache(bytes32 _certHash) external;
     function setRootCert(ProcessorType _processorModel, bytes32 _rootCert) external;
     function setZkConfiguration(ZkCoProcessorType zkCoProcessor, ZkCoProcessorConfig memory config) external;
-    function checkTrustedIntermediateCerts(ProcessorType[] calldata processorModels, bytes32[][] calldata _reportCerts)
-        external
-        view
-        returns (uint8[] memory);
 
     function verifyAndAttestWithZKProof(
         bytes calldata output,

@@ -72,7 +72,7 @@ impl ProveCli {
             report_with_cert_chain.vek_certs,
         )?;
 
-        let output: VerifierJournal = result.raw_proof.decode_journal()?;
+        let output = VerifierJournal::decode(&result.raw_proof.journal)?;
 
         // Write proof to output file if specified
         if let Some(out) = &self.out {

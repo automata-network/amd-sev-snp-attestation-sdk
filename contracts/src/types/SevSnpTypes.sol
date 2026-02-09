@@ -71,7 +71,7 @@ library TcbVersionLib {
         for (uint256 i = 0; i < 3; i++) {
             reserved[i] = rawTcb.readUint8(4 + i);
         }
-        
+
         tcb = TcbVersion({
             fmc: rawTcb.readUint8(0),
             bootloader: rawTcb.readUint8(1),
