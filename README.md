@@ -188,9 +188,37 @@ snp-attest-cli program-id <sp1|risc0|pico>
 | ------- | ------------- | ----- | --------------- |
 | SP1 | `--strategy` | `dev`, `local`, `network` | only `network` |
 | RISC0 | `--strategy` | `dev`, `local`, `boundless` | only `boundless` |
-| Pico | `--strategy` | `dev`, `local`, `marketplace` | `marketplace` is placeholder |
+| Pico | `--strategy` | `dev`, `local`, `marketplace` | only `marketplace` |
 
 `--dev` is still supported and forces `dev` strategy regardless of backend strategy flag.
+
+### Pico Marketplace Inputs
+
+Pico marketplace proving (`--strategy marketplace`) uses the Brevis prover marketplace on Base.
+You can configure it via CLI flags or env vars:
+
+```bash
+# required for marketplace proving
+export PICO_RPC_URL="https://mainnet.base.org"
+export PICO_PROVER_KEY="0x..."
+export PICO_PROGRAM_URL="ipfs://..."
+
+# optional tuning
+export MARKETPLACE_POLL_BLOCK_INTERVAL=10
+```
+
+CLI flags:
+
+```bash
+snp-attest-cli prove pico \
+  --strategy marketplace \
+  --pico-rpc-url https://mainnet.base.org \
+  --pico-prover-key 0x... \
+  --elf-url ipfs://... \
+  --poll-interval 30 \
+  --duration 86400 \
+  --report samples/attestation_azure_snp.json
+```
 
 ## Acknowledgements
 We would like to acknowledge the projects below whose previous work has been instrumental in making this project a reality.

@@ -26,7 +26,7 @@ pub use program_risc0::{
 pub mod program_pico;
 #[cfg(feature = "pico")]
 pub use program_pico::{
-    MarketplaceConfigPlaceholder, PicoProverConfig, PicoProvingStrategy, ProgramPico,
+    MarketplaceConfig, PicoProverConfig, PicoProvingStrategy, ProgramPico,
 };
 
 pub fn set_prover_dev_mode(_dev_mode: bool) {
@@ -50,6 +50,6 @@ pub fn set_prover_dev_mode(_dev_mode: bool) {
         std::env::set_var("PICO_STRATEGY", "dev");
     } else {
         std::env::set_var("PICO_DEV_MODE", "0");
-        std::env::set_var("PICO_STRATEGY", "local");
+        std::env::set_var("PICO_STRATEGY", "marketplace");
     }
 }

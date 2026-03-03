@@ -46,9 +46,9 @@ pub enum Risc0ProvingStrategyCli {
 pub enum PicoProvingStrategyCli {
     #[value(name = "dev")]
     Dev,
-    #[default]
     #[value(name = "local")]
     Local,
+    #[default]
     #[value(name = "marketplace")]
     Marketplace,
 }
@@ -132,9 +132,45 @@ pub struct PicoArgs {
     #[clap(flatten)]
     pub shared: SharedProverArgs,
 
-    /// Pico proving strategy: dev, local, or marketplace (placeholder for next task).
-    #[arg(long = "strategy", value_enum, default_value = "local")]
+    /// Pico proving strategy: dev, local, or marketplace.
+    #[arg(long = "strategy", value_enum, default_value = "marketplace")]
     pub strategy: PicoProvingStrategyCli,
+
+    /// Base chain RPC URL for Brevis marketplace.
+    #[arg(long = "pico-rpc-url", env = "PICO_RPC_URL")]
+    pub pico_rpc_url: Option<String>,
+
+    /// Wallet private key for Brevis marketplace transactions (hex-encoded).
+    #[arg(long = "pico-prover-key", env = "PICO_PROVER_KEY")]
+    pub prover_key: Option<String>,
+
+    /// URL where the Pico ELF binary is hosted (e.g., IPFS).
+    #[arg(long = "elf-url", env = "PICO_PROGRAM_URL")]
+    pub elf_url: Option<String>,
+
+    /// URL where input data is hosted (optional, for large inputs).
+    #[arg(long = "input-url")]
+    pub input_url: Option<String>,
+
+    /// Maximum fee in BREV tokens (wei). Auto-estimated if not set.
+    #[arg(long = "max-fee")]
+    pub max_fee: Option<u128>,
+
+    /// Fee multiplier for auto-estimation (default: 3.0).
+    #[arg(long = "fee-multiplier")]
+    pub fee_multiplier: Option<f64>,
+
+    /// Minimum prover stake required (wei). Queried on-chain if not set.
+    #[arg(long = "min-stake")]
+    pub min_stake: Option<u128>,
+
+    /// Request duration in seconds (default: 86400 = 24h).
+    #[arg(long = "duration", default_value = "86400")]
+    pub duration: u64,
+
+    /// Poll interval in seconds for marketplace proof status (default: 30).
+    #[arg(long = "poll-interval", default_value = "30")]
+    pub poll_interval: u64,
 }
 
 /// Backend selection as a subcommand, with each variant carrying its own arguments.
@@ -214,9 +250,11 @@ impl BackendSubcommand {
 
             #[cfg(feature = "pico")]
             BackendSubcommand::Pico(args) => {
+                use anyhow::anyhow;
                 use amd_sev_snp_attestation_prover::{
-                    MarketplaceConfigPlaceholder, PicoProverConfig, PicoProvingStrategy,
+                    MarketplaceConfig, PicoProverConfig, PicoProvingStrategy,
                 };
+                use std::time::{SystemTime, UNIX_EPOCH};
 
                 let proving_strategy = if args.shared.dev {
                     PicoProvingStrategy::Dev
@@ -229,7 +267,33 @@ impl BackendSubcommand {
                 };
 
                 let marketplace = if proving_strategy == PicoProvingStrategy::Marketplace {
-                    Some(MarketplaceConfigPlaceholder)
+                    let elf_url = args
+                        .elf_url
+                        .clone()
+                        .filter(|url| !url.trim().is_empty())
+                        .ok_or_else(|| anyhow!("--elf-url is required for marketplace strategy"))?;
+
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    Some(MarketplaceConfig {
+                        rpc_url: args.pico_rpc_url.clone(),
+                        private_key: args.prover_key.clone(),
+                        elf_url,
+                        input_url: args.input_url.clone(),
+                        brevis_market_address: None,
+                        brev_token_address: None,
+                        staking_controller_address: None,
+                        max_fee: args.max_fee,
+                        fee_multiplier: args.fee_multiplier,
+                        min_stake: args.min_stake,
+                        deadline: now + args.duration,
+                        nonce: now,
+                        version: None,
+                        poll_interval: Some(args.poll_interval),
+                    })
                 } else {
                     None
                 };
