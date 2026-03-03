@@ -4,14 +4,12 @@ use alloy_primitives::{Bytes, B256, U256};
 use alloy_sol_types::SolValue;
 use amd_sev_snp_attestation_verifier::stub::{VerifierInput, VerifierJournal, ZkCoProcessorType};
 use anyhow::anyhow;
+use ff::PrimeField as FfPrimeField;
 use lazy_static::lazy_static;
-use p3_field::PrimeField;
 use pico_methods::PICO_VERIFIER_ELF;
 use pico_sdk::{client::KoalaBearProverClient, HashableKey};
-use pico_vm::{
-    configs::stark_config::KoalaBearPoseidon2,
-    machine::keys::BaseVerifyingKey,
-};
+use pico_vm::{configs::stark_config::KoalaBearPoseidon2, machine::keys::BaseVerifyingKey};
+use sha2::{Digest, Sha256};
 
 use crate::{
     program::{LocalProver, Program, ProgramBase, RemoteProver},
@@ -26,21 +24,52 @@ lazy_static! {
         ProgramPico::new(PICO_VERIFIER_ELF);
 }
 
+/// Proving strategy for Pico zkVM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PicoProvingStrategy {
     Dev,
-    #[default]
     Local,
+    #[default]
     Marketplace,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct MarketplaceConfigPlaceholder;
+/// Configuration for Brevis Prover Network marketplace on Base.
+#[derive(Debug, Clone)]
+pub struct MarketplaceConfig {
+    /// Base chain RPC URL (chain ID 8453).
+    pub rpc_url: Option<String>,
+    /// Wallet private key for signing transactions (hex-encoded).
+    pub private_key: Option<String>,
+    /// URL where the ELF binary is hosted (e.g., IPFS).
+    pub elf_url: String,
+    /// URL where input data is hosted (optional, for large inputs).
+    pub input_url: Option<String>,
+    /// BrevisMarket contract address (defaults to Base mainnet).
+    pub brevis_market_address: Option<String>,
+    /// BREV token contract address (defaults to Base mainnet).
+    pub brev_token_address: Option<String>,
+    /// StakingController contract address (defaults to Base mainnet).
+    pub staking_controller_address: Option<String>,
+    /// Maximum fee in BREV tokens (wei). If None, auto-estimated from on-chain stats.
+    pub max_fee: Option<u128>,
+    /// Multiplier applied to the estimated average fee when auto-estimating max_fee.
+    pub fee_multiplier: Option<f64>,
+    /// Minimum prover stake required (wei). If None, queried from StakingController.minSelfStake().
+    pub min_stake: Option<u128>,
+    /// Deadline as unix timestamp (computed from duration at submission time).
+    pub deadline: u64,
+    /// Unique nonce per request (auto-generated if not provided).
+    pub nonce: u64,
+    /// Pico verifier version (default 0).
+    pub version: Option<u32>,
+    /// Poll interval in seconds for checking proof status (default 30).
+    pub poll_interval: Option<u64>,
+}
 
 #[derive(Debug, Clone)]
 pub struct PicoProverConfig {
     pub proving_strategy: PicoProvingStrategy,
-    pub marketplace: Option<MarketplaceConfigPlaceholder>,
+    pub marketplace: Option<MarketplaceConfig>,
 }
 
 impl Default for PicoProverConfig {
@@ -49,9 +78,9 @@ impl Default for PicoProverConfig {
             PicoProvingStrategy::Dev
         } else {
             match std::env::var("PICO_STRATEGY").ok().as_deref() {
-                Some("marketplace") => PicoProvingStrategy::Marketplace,
                 Some("dev") => PicoProvingStrategy::Dev,
-                _ => PicoProvingStrategy::Local,
+                Some("local") => PicoProvingStrategy::Local,
+                _ => PicoProvingStrategy::Marketplace,
             }
         };
 
@@ -94,6 +123,26 @@ impl<Input, Output> ProgramPico<Input, Output> {
         &self.config
     }
 
+    /// Compute the 32-byte verification key for marketplace submission.
+    pub(crate) fn compute_vk_bytes(&self) -> [u8; 32] {
+        let client = KoalaBearProverClient::new(self.elf);
+        let vk = client.riscv_vk().clone();
+        let vk_digest_bn254 = vk.hash_bn254();
+        let mut result = [0u8; 32];
+        result.copy_from_slice(vk_digest_bn254.value.to_repr().as_ref());
+        result.reverse(); // to_repr() is LE; convert to BE.
+        result
+    }
+
+    /// Compute SHA-256 digest of public values buffer, then mask top 3 bits for BN254 field.
+    pub(crate) fn compute_public_values_digest(buf: &[u8]) -> [u8; 32] {
+        let hash = Sha256::digest(buf);
+        let mut digest = [0u8; 32];
+        digest.copy_from_slice(&hash);
+        digest[0] &= 0x1F;
+        digest
+    }
+
     fn gen_proof_for_strategy(
         &self,
         strategy: PicoProvingStrategy,
@@ -106,23 +155,29 @@ impl<Input, Output> ProgramPico<Input, Output> {
     {
         let client = KoalaBearProverClient::new(self.elf);
         let mut stdin_builder = client.new_stdin_builder();
-
         stdin_builder.write_slice(&input.abi_encode());
 
         let vk = client.riscv_vk().clone();
-        let (cycle, pv_stream) = client.emulate(stdin_builder.clone());
-        println!("Pico zkVM Emulation completed in {} cycles", cycle);
+        let (reports, pv_stream) = client.emulate(stdin_builder.clone());
+        let cycles = reports.last().map(|r| r.current_cycle).unwrap_or(0);
+        println!("Pico zkVM Emulation completed in {} cycles", cycles);
 
         let journal: Bytes = pv_stream.into();
+        let pv_raw_bytes = journal.to_vec();
 
         match strategy {
             PicoProvingStrategy::Dev => local::gen_dev_proof(vk, journal),
             PicoProvingStrategy::Local => {
                 local::gen_local_proof(&client, stdin_builder, raw_proof_type, vk, journal)
             }
-            PicoProvingStrategy::Marketplace => {
-                remote::gen_marketplace_proof(self, stdin_builder, raw_proof_type, vk, journal)
-            }
+            PicoProvingStrategy::Marketplace => remote::gen_marketplace_proof(
+                self,
+                stdin_builder,
+                raw_proof_type,
+                vk,
+                journal,
+                &pv_raw_bytes,
+            ),
         }
     }
 }
@@ -137,7 +192,7 @@ where
     type ZkType = ZkCoProcessorType;
 
     fn version(&self) -> &'static str {
-        "v1.1.6"
+        "v1.2.2"
     }
 
     fn zktype(&self) -> ZkCoProcessorType {
@@ -162,9 +217,9 @@ where
         let client = KoalaBearProverClient::new(self.elf);
         let vk = client.riscv_vk();
         let vk_digest_bn254 = vk.hash_bn254();
-        let vk_bytes = vk_digest_bn254.as_canonical_biguint().to_bytes_be();
         let mut result = [0u8; 32];
-        result[1..].copy_from_slice(&vk_bytes);
+        result.copy_from_slice(vk_digest_bn254.value.to_repr().as_ref());
+        result.reverse();
         B256::from(result)
     }
 

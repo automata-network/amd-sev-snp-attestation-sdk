@@ -9,7 +9,7 @@ license.workspace = true
 default = ["risc0", "sp1"]
 sp1 = ["dep:sp1-sdk", "dep:sp1-methods"]
 risc0 = ["dep:risc0-zkvm", "dep:risc0-methods", "dep:boundless-market"]
-pico = ["dep:pico-sdk", "dep:pico-vm", "dep:pico-methods", "dep:p3-field"]
+pico = ["dep:pico-sdk", "dep:pico-vm", "dep:pico-methods", "dep:ff", "dep:sha2", "dep:hex", "dep:boundless-market", "dep:alloy-contract"]
 
 [dependencies]
 anyhow.workspace = true
@@ -22,7 +22,7 @@ sp1-sdk = { workspace = true, optional = true, default-features = false, feature
 pico-methods = { workspace = true, optional = true }
 pico-sdk = { workspace = true, optional = true }
 pico-vm = { workspace = true, optional = true }
-p3-field = { git = "https://github.com/brevis-network/Plonky3.git", rev = "a4d376b", optional = true }
+ff = { version = "0.13", optional = true }
 alloy-primitives.workspace = true
 boundless-market = { workspace = true, optional = true }
 tokio.workspace = true
@@ -33,6 +33,7 @@ bincode.workspace = true
 risc0-ethereum-contracts = { workspace = true, features = ["unstable"] }
 serde_json.workspace = true
 alloy-provider = { workspace = true }
+alloy-contract = { workspace = true, optional = true }
 alloy-network = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-signer-local = { workspace = true }
@@ -40,3 +41,5 @@ tracing.workspace = true
 crossbeam.workspace = true
 lazy_static.workspace = true
 reqwest.workspace = true
+sha2 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
