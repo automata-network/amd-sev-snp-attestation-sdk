@@ -46,8 +46,8 @@ echo "Hoodi: $HOODI_RPC_URL"
 
 cargo build
 
-target/debug/snp-attest-cli upload --risc0 --out samples/risc0_program_id.json
-target/debug/snp-attest-cli upload --sp1 --out samples/sp1_program_id.json
+target/debug/snp-attest-cli upload risc0 --out samples/risc0_program_id.json
+target/debug/snp-attest-cli upload sp1 --out samples/sp1_program_id.json
 
 #run_in_all_network _deploy 'deployAll(string,string,string)' ../samples/amd_ark.der ../samples/sp1_program_id.json ../samples/risc0_program_id.json
 run_in_all_network _deploy 'updateZkVerifiers(string,string)' ../samples/sp1_program_id.json ../samples/risc0_program_id.json

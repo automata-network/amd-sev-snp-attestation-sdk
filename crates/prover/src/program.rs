@@ -4,20 +4,13 @@
 //! zero-knowledge proof programs.
 //! It provides a unified interface for different ZK proof systems like RISC0 and SP1.
 
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use alloy_primitives::{Bytes, B256};
 use alloy_sol_types::{SolType, SolValue};
+use anyhow::anyhow;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-/// Core trait defining the interface for zero-knowledge proof programs.
-///
-/// This trait provides a unified interface for different ZK proof systems with pre-defined
-/// input and output types to generate zero-knowledge proofs.
-///
-/// Implementations of this trait must be thread-safe (`Send + Sync`) to support
-/// concurrent proof generation and verification operations.
-///
-pub trait Program: Send + Sync {
+/// Base trait defining shared metadata and encoding behavior for zk programs.
+pub trait ProgramBase: Send + Sync {
     /// The input type for this ZK program, must be Solidity-encodable
     type Input: SolValue;
 
@@ -45,14 +38,45 @@ pub trait Program: Send + Sync {
     /// It might be empty if the proof is not verifiable on-chain (e.g. FakeProof, CompositeProof).
     fn onchain_proof(&self, proof: &RawProof) -> anyhow::Result<Bytes>;
 
-    /// Uploads the program image to a remote proving service.
-    fn upload_image(&self, cfg: &RemoteProverConfig) -> anyhow::Result<()>;
-
     /// Returns the identifier for this program which can be used by the on-chain verifier contract.
     fn program_id(&self) -> B256;
 
     /// Returns the identifier for verifying the composite proof. It's usually used on the aggregator program.
     fn verify_proof_id(&self) -> B256;
+}
+
+/// Trait for local proving paths.
+pub trait LocalProver: ProgramBase {
+    fn gen_proof_local(
+        &self,
+        input: &Self::Input,
+        raw_proof_type: RawProofType,
+        encoded_composite_proofs: Option<&[&Bytes]>,
+    ) -> anyhow::Result<RawProof>;
+
+    fn gen_proof_dev(
+        &self,
+        input: &Self::Input,
+        raw_proof_type: RawProofType,
+        encoded_composite_proofs: Option<&[&Bytes]>,
+    ) -> anyhow::Result<RawProof>;
+}
+
+/// Trait for remote proving paths and image upload operations.
+pub trait RemoteProver: ProgramBase {
+    fn gen_proof_remote(
+        &self,
+        input: &Self::Input,
+        raw_proof_type: RawProofType,
+        encoded_composite_proofs: Option<&[&Bytes]>,
+    ) -> anyhow::Result<RawProof>;
+
+    fn upload_image_remote(&self) -> anyhow::Result<()>;
+}
+
+/// Facade trait used by `AmdSevSnpProver`.
+pub trait Program: ProgramBase {
+    fn upload_image(&self) -> anyhow::Result<()>;
 
     /// Generates a zero-knowledge proof for the given input.
     ///
@@ -80,19 +104,6 @@ pub trait Program: Send + Sync {
         raw_proof_type: RawProofType,
         encoded_composite_proofs: Option<&[&Bytes]>,
     ) -> anyhow::Result<RawProof>;
-}
-
-/// Configuration for remote proof generation services.
-///
-/// This structure contains the necessary credentials and endpoint information
-/// to connect to remote proving services.
-#[derive(Clone)]
-pub struct RemoteProverConfig {
-    /// The API endpoint URL for the remote proving service
-    /// Optional since SP1 5.2+ includes a default mainnet endpoint
-    pub api_url: Option<String>,
-    /// The authentication key for accessing the remote proving service
-    pub api_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

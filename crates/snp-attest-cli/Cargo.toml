@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["risc0", "sp1"]
+default = ["risc0", "sp1", "pico"]
 sp1 = ["amd-sev-snp-attestation-prover/sp1"]
 risc0 = ["amd-sev-snp-attestation-prover/risc0"]
 pico = ["amd-sev-snp-attestation-prover/pico"]
