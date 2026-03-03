@@ -104,6 +104,94 @@ export SP1_PRIVATE_KEY="0x..."  # Your whitelisted private key
 # SP1_RPC_URL is optional - SP1 5.2 defaults to production mainnet endpoint
 ```
 
+## Using The Prover SDK
+
+The prover now exposes explicit proving strategies per zkVM backend.
+
+### Strategy Enums
+
+- `SP1ProvingStrategy`: `Dev`, `Local`, `Network`
+- `RiscZeroProvingStrategy`: `Dev`, `Local`, `Boundless`
+- `PicoProvingStrategy`: `Dev`, `Local`, `Marketplace`
+
+### Rust API Example (SP1)
+
+```rust,no_run
+use amd_sev_snp_attestation_prover::{
+    AmdSevSnpProver, ProverConfig, SP1ProverConfig, SP1ProvingStrategy,
+};
+
+fn main() -> anyhow::Result<()> {
+    let cfg = ProverConfig::sp1_with(SP1ProverConfig {
+        strategy: SP1ProvingStrategy::Local,
+        private_key: None,
+        rpc_url: None,
+    });
+    let prover = AmdSevSnpProver::new(cfg, None);
+
+    let timestamp = 1_700_000_000u64;
+    let report_with_chain = std::fs::read("samples/attestation_azure_snp.json")?;
+    let decoded = amd_sev_snp_attestation_prover::utils::AttestationReportWithVekCertChain::decode(&report_with_chain)?;
+    let proof = prover.prove_attestation_report(timestamp, decoded.report, decoded.vek_certs)?;
+    std::fs::write("proof.json", proof.encode_json()?)?;
+    Ok(())
+}
+```
+
+### Rust API Example (RISC0)
+
+```rust,no_run
+use amd_sev_snp_attestation_prover::{
+    AmdSevSnpProver, ProverConfig, RiscZeroProverConfig, RiscZeroProvingStrategy,
+};
+
+fn main() -> anyhow::Result<()> {
+    let cfg = ProverConfig::risc0_with(RiscZeroProverConfig {
+        strategy: RiscZeroProvingStrategy::Boundless,
+        ..Default::default()
+    });
+    let _prover = AmdSevSnpProver::new(cfg, None);
+    Ok(())
+}
+```
+
+### Rust API Example (Pico)
+
+```rust,no_run
+use amd_sev_snp_attestation_prover::{
+    AmdSevSnpProver, PicoProverConfig, PicoProvingStrategy, ProverConfig,
+};
+
+fn main() -> anyhow::Result<()> {
+    let cfg = ProverConfig::pico_with(PicoProverConfig {
+        proving_strategy: PicoProvingStrategy::Local,
+        marketplace: None,
+    });
+    let _prover = AmdSevSnpProver::new(cfg, None);
+    Ok(())
+}
+```
+
+## CLI Proving Modes
+
+Backend selection is now subcommand-based:
+
+```bash
+snp-attest-cli prove <sp1|risc0|pico> ...
+snp-attest-cli upload <sp1|risc0|pico> ...
+snp-attest-cli program-id <sp1|risc0|pico>
+```
+
+### Mode Matrix
+
+| Backend | Strategy Flag | Modes | Remote Required |
+| ------- | ------------- | ----- | --------------- |
+| SP1 | `--strategy` | `dev`, `local`, `network` | only `network` |
+| RISC0 | `--strategy` | `dev`, `local`, `boundless` | only `boundless` |
+| Pico | `--strategy` | `dev`, `local`, `marketplace` | `marketplace` is placeholder |
+
+`--dev` is still supported and forces `dev` strategy regardless of backend strategy flag.
+
 ## Acknowledgements
 We would like to acknowledge the projects below whose previous work has been instrumental in making this project a reality.
 

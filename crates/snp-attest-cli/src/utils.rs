@@ -5,104 +5,244 @@
 
 use alloy_primitives::Address;
 use amd_sev_snp_attestation_prover::{AmdSevSnpProver, ProverConfig, SnpVerifierContract};
-use anyhow::{anyhow, bail};
-use clap::Args;
+use clap::{Args, Subcommand, ValueEnum};
 
-/// Command-line arguments for configuring zero-knowledge proof system settings.
-///
-/// Supports both RISC0 and SP1 proof systems with their respective configuration options.
-/// Only one prover type should be specified at a time.
+/// Proof type for Boundless proving (CLI enum).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum BoundlessProofTypeCli {
+    #[default]
+    #[value(name = "groth16")]
+    Groth16,
+    #[value(name = "merkle")]
+    Merkle,
+}
+
+#[cfg(feature = "sp1")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum Sp1ProvingStrategyCli {
+    #[value(name = "dev")]
+    Dev,
+    #[value(name = "local")]
+    Local,
+    #[default]
+    #[value(name = "network")]
+    Network,
+}
+
+#[cfg(feature = "risc0")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum Risc0ProvingStrategyCli {
+    #[value(name = "dev")]
+    Dev,
+    #[value(name = "local")]
+    Local,
+    #[default]
+    #[value(name = "boundless")]
+    Boundless,
+}
+
+#[cfg(feature = "pico")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum PicoProvingStrategyCli {
+    #[value(name = "dev")]
+    Dev,
+    #[default]
+    #[value(name = "local")]
+    Local,
+    #[value(name = "marketplace")]
+    Marketplace,
+}
+
+/// Shared arguments common to all prover backends.
 #[derive(Args, Clone)]
-pub struct ProverArgs {
-    #[cfg(feature = "risc0")]
-    /// Use the RISC0 zkVM for proof generation
-    #[arg(long)]
-    pub risc0: bool,
-
-    #[cfg(feature = "sp1")]
-    /// Use the SP1 zkVM for proof generation
-    #[arg(long)]
-    pub sp1: bool,
-
-    #[cfg(feature = "pico")]
-    /// Use the Pico zkVM for proof generation
-    #[arg(long)]
-    pub pico: bool,
-
-    /// Enable development mode for mock proof generation
+pub struct SharedProverArgs {
+    /// Enable development mode for mock proof generation (compatibility override).
     #[arg(long, default_value = "false", env = "DEV_MODE")]
     pub dev: bool,
+}
 
-    /// Private key for SP1 network prover
-    #[arg(long, env = "SP1_PRIVATE_KEY")]
+/// SP1-specific prover arguments.
+#[cfg(feature = "sp1")]
+#[derive(Args, Clone)]
+pub struct Sp1Args {
+    #[clap(flatten)]
+    pub shared: SharedProverArgs,
+
+    /// SP1 proving strategy: dev, local, or network.
+    #[arg(long = "strategy", value_enum, default_value = "network")]
+    pub strategy: Sp1ProvingStrategyCli,
+
+    /// Private key for SP1 network prover.
+    #[arg(long = "sp1-private-key", env = "SP1_PRIVATE_KEY")]
     pub sp1_private_key: Option<String>,
 
-    /// RPC URL for SP1 network connection
+    /// RPC URL for SP1 prover network.
     #[arg(long, env = "SP1_RPC_URL")]
     pub sp1_rpc_url: Option<String>,
+}
 
-    /// RPC URL for Boundless prover network
+/// RISC0-specific prover arguments.
+#[cfg(feature = "risc0")]
+#[derive(Args, Clone)]
+pub struct Risc0Args {
+    #[clap(flatten)]
+    pub shared: SharedProverArgs,
+
+    /// RISC0 proving strategy: dev, local, or boundless.
+    #[arg(long = "strategy", value_enum, default_value = "boundless")]
+    pub strategy: Risc0ProvingStrategyCli,
+
+    /// Boundless RPC URL for RISC0 proving.
     #[arg(long, env = "BOUNDLESS_RPC_URL")]
     pub boundless_rpc_url: Option<String>,
 
-    /// Private key for Boundless prover network (hex-encoded)
-    #[arg(long, env = "BOUNDLESS_PRIVATE_KEY")]
+    /// Boundless wallet private key (hex-encoded).
+    #[arg(long = "boundless-private-key", env = "BOUNDLESS_PRIVATE_KEY")]
     pub boundless_private_key: Option<String>,
+
+    /// Verifier program URL for pre-uploaded ELF (optional, uploads to IPFS if not set).
+    #[arg(long, env = "BOUNDLESS_VERIFIER_PROGRAM_URL")]
+    pub verifier_program_url: Option<String>,
+
+    /// Proof type for Boundless proving (groth16 or merkle).
+    #[arg(long, value_enum, default_value = "groth16")]
+    pub proof_type: BoundlessProofTypeCli,
+
+    /// Minimum price in wei per cycle.
+    #[arg(long, env = "BOUNDLESS_MIN_PRICE")]
+    pub min_price: Option<u128>,
+
+    /// Maximum price in wei per cycle.
+    #[arg(long, env = "BOUNDLESS_MAX_PRICE")]
+    pub max_price: Option<u128>,
+
+    /// Timeout in seconds.
+    #[arg(long, env = "BOUNDLESS_TIMEOUT")]
+    pub timeout: Option<u32>,
+
+    /// Ramp-up period in seconds.
+    #[arg(long, env = "BOUNDLESS_RAMP_UP_PERIOD")]
+    pub ramp_up_period: Option<u32>,
 }
 
-impl ProverArgs {
-    /// Creates a prover configuration based on the specified arguments.
+/// Pico-specific prover arguments.
+#[cfg(feature = "pico")]
+#[derive(Args, Clone)]
+pub struct PicoArgs {
+    #[clap(flatten)]
+    pub shared: SharedProverArgs,
+
+    /// Pico proving strategy: dev, local, or marketplace (placeholder for next task).
+    #[arg(long = "strategy", value_enum, default_value = "local")]
+    pub strategy: PicoProvingStrategyCli,
+}
+
+/// Backend selection as a subcommand, with each variant carrying its own arguments.
+#[derive(Subcommand, Clone)]
+pub enum BackendSubcommand {
+    /// Use the SP1 zkVM for proof generation.
+    #[cfg(feature = "sp1")]
+    Sp1(Sp1Args),
+
+    /// Use the RISC0 zkVM for proof generation.
+    #[cfg(feature = "risc0")]
+    Risc0(Risc0Args),
+
+    /// Use the Pico zkVM for proof generation.
+    #[cfg(feature = "pico")]
+    Pico(PicoArgs),
+}
+
+impl BackendSubcommand {
+    /// Creates a prover configuration based on the selected backend.
     pub fn prover_config(&self) -> anyhow::Result<ProverConfig> {
-        // Check for mutually exclusive flags
-        let mut count = 0;
-        #[cfg(feature = "sp1")]
-        if self.sp1 { count += 1; }
-        #[cfg(feature = "risc0")]
-        if self.risc0 { count += 1; }
-        #[cfg(feature = "pico")]
-        if self.pico { count += 1; }
+        match self {
+            #[cfg(feature = "sp1")]
+            BackendSubcommand::Sp1(args) => {
+                use amd_sev_snp_attestation_prover::{SP1ProverConfig, SP1ProvingStrategy};
+                let strategy = if args.shared.dev {
+                    SP1ProvingStrategy::Dev
+                } else {
+                    match args.strategy {
+                        Sp1ProvingStrategyCli::Dev => SP1ProvingStrategy::Dev,
+                        Sp1ProvingStrategyCli::Local => SP1ProvingStrategy::Local,
+                        Sp1ProvingStrategyCli::Network => SP1ProvingStrategy::Network,
+                    }
+                };
 
-        if count > 1 {
-            return Err(anyhow!(
-                "Cannot use multiple zkVM options at the same time. Choose one: --sp1, --risc0, or --pico"
-            ));
-        }
-
-        #[cfg(feature = "sp1")]
-        if self.sp1 {
-            use amd_sev_snp_attestation_prover::SP1ProverConfig;
-            if let Some(sp1_private_key) = self.sp1_private_key.as_ref() {
-                std::env::set_var("NETWORK_PRIVATE_KEY", sp1_private_key);
+                Ok(ProverConfig::sp1_with(SP1ProverConfig {
+                    strategy,
+                    private_key: args.sp1_private_key.clone(),
+                    rpc_url: args.sp1_rpc_url.clone(),
+                }))
             }
-            if let Some(sp1_rpc_url) = self.sp1_rpc_url.as_ref() {
-                std::env::set_var("NETWORK_RPC_URL", sp1_rpc_url);
+
+            #[cfg(feature = "risc0")]
+            BackendSubcommand::Risc0(args) => {
+                use amd_sev_snp_attestation_prover::{
+                    program_risc0::BoundlessProofType, RiscZeroProverConfig,
+                    RiscZeroProvingStrategy,
+                };
+
+                let strategy = if args.shared.dev {
+                    RiscZeroProvingStrategy::Dev
+                } else {
+                    match args.strategy {
+                        Risc0ProvingStrategyCli::Dev => RiscZeroProvingStrategy::Dev,
+                        Risc0ProvingStrategyCli::Local => RiscZeroProvingStrategy::Local,
+                        Risc0ProvingStrategyCli::Boundless => RiscZeroProvingStrategy::Boundless,
+                    }
+                };
+
+                let proof_type = match args.proof_type {
+                    BoundlessProofTypeCli::Merkle => BoundlessProofType::Merkle,
+                    BoundlessProofTypeCli::Groth16 => BoundlessProofType::Groth16,
+                };
+
+                Ok(ProverConfig::risc0_with(RiscZeroProverConfig {
+                    strategy,
+                    rpc_url: args.boundless_rpc_url.clone(),
+                    private_key: args.boundless_private_key.clone(),
+                    verifier_program_url: args.verifier_program_url.clone(),
+                    proof_type,
+                    min_price: args.min_price,
+                    max_price: args.max_price,
+                    timeout: args.timeout,
+                    ramp_up_period: args.ramp_up_period,
+                }))
             }
-            return Ok(ProverConfig::sp1_with(SP1ProverConfig {
-                private_key: self.sp1_private_key.clone(),
-                rpc_url: self.sp1_rpc_url.clone(),
-            }));
-        }
 
-        #[cfg(feature = "risc0")]
-        if self.risc0 {
-            use amd_sev_snp_attestation_prover::RiscZeroProverConfig;
-            return Ok(ProverConfig::risc0_with(RiscZeroProverConfig {
-                rpc_url: self.boundless_rpc_url.clone(),
-                private_key: self.boundless_private_key.clone(),
-                ..Default::default()
-            }));
-        }
+            #[cfg(feature = "pico")]
+            BackendSubcommand::Pico(args) => {
+                use amd_sev_snp_attestation_prover::{
+                    MarketplaceConfigPlaceholder, PicoProverConfig, PicoProvingStrategy,
+                };
 
-        #[cfg(feature = "pico")]
-        if self.pico {
-            use amd_sev_snp_attestation_prover::PicoProverConfig;
-            return Ok(ProverConfig::pico_with(PicoProverConfig::default()));
-        }
+                let proving_strategy = if args.shared.dev {
+                    PicoProvingStrategy::Dev
+                } else {
+                    match args.strategy {
+                        PicoProvingStrategyCli::Dev => PicoProvingStrategy::Dev,
+                        PicoProvingStrategyCli::Local => PicoProvingStrategy::Local,
+                        PicoProvingStrategyCli::Marketplace => PicoProvingStrategy::Marketplace,
+                    }
+                };
 
-        bail!("No prover specified. Use --risc0, --sp1, or --pico to select a proof system.");
+                let marketplace = if proving_strategy == PicoProvingStrategy::Marketplace {
+                    Some(MarketplaceConfigPlaceholder)
+                } else {
+                    None
+                };
+
+                Ok(ProverConfig::pico_with(PicoProverConfig {
+                    proving_strategy,
+                    marketplace,
+                }))
+            }
+        }
     }
 
-    /// Creates a new `NitroEnclaveProver` instance with the configured settings.
+    /// Creates a new `AmdSevSnpProver` instance with the configured settings.
     pub fn new_prover(
         &self,
         contract: Option<SnpVerifierContract>,
@@ -112,15 +252,13 @@ impl ProverArgs {
 }
 
 /// Command-line arguments for configuring smart contract interaction.
-///
-/// Used for on-chain proof verification and other blockchain operations.
 #[derive(Args, Clone)]
 pub struct ContractArgs {
-    /// The address of the Nitro Enclave Verifier contract
+    /// The address of the SEVAgentAttestation contract.
     #[arg(long, env = "CONTRACT")]
     pub contract: Option<Address>,
 
-    /// The RPC URL to connect to the Ethereum network
+    /// The RPC URL to connect to the Ethereum network.
     #[arg(long, env = "RPC_URL", default_value = "http://localhost:8545")]
     pub rpc_url: Option<String>,
 
