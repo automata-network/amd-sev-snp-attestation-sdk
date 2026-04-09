@@ -169,3 +169,11 @@ func TestNormalizeNetworkKey(t *testing.T) {
 		}
 	}
 }
+
+func TestWarnings_ReturnsSlice(t *testing.T) {
+	// Warnings() should return a non-nil slice (may be empty if all networks loaded fine)
+	w := Warnings()
+	if w == nil {
+		t.Fatal("Warnings() should return non-nil slice")
+	}
+}

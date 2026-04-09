@@ -20,6 +20,8 @@ var (
 	initError         error
 )
 
+var initWarnings []string
+
 // initRegistry initializes the network registry from embedded files
 func initRegistry() {
 	registryOnce.Do(func() {
@@ -42,13 +44,14 @@ func initRegistry() {
 			sevPath := fmt.Sprintf("%s.json", chainIDStr)
 			sevData, err := deployments.FS.ReadFile(sevPath)
 			if err != nil {
-				// Network might not have deployment yet, skip
+				initWarnings = append(initWarnings, fmt.Sprintf("network %s: deployment file %s not found: %v", key, sevPath, err))
 				continue
 			}
 
 			// Parse network
 			network, err := parseNetwork(key, meta, sevData)
 			if err != nil {
+				initWarnings = append(initWarnings, fmt.Sprintf("network %s: failed to parse: %v", key, err))
 				continue
 			}
 
@@ -151,6 +154,16 @@ func ChainIDs() ([]uint64, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+// Warnings returns any warnings from registry initialization
+// (e.g., networks skipped due to missing deployment files)
+func Warnings() []string {
+	initRegistry()
+	if initWarnings == nil {
+		return []string{}
+	}
+	return initWarnings
 }
 
 // MustByKey returns a network by key or panics
