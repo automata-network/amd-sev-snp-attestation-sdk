@@ -8,7 +8,7 @@ mod wasm;
 
 // Re-export core types from verifier crate
 pub use amd_sev_snp_attestation_verifier::stub::{
-    ProcessorType, VerificationResult, VerifierInput, VerifierJournal, ZkCoProcessorType,
+    ProcessorType, VerificationResult, VerifierInput, VerifierJournal,
 };
 
 #[cfg(feature = "wasm")]

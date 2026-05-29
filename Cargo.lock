@@ -776,6 +776,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "boundless-market",
+ "contract-stub",
  "crossbeam",
  "ff 0.13.1",
  "hex",
@@ -825,6 +826,7 @@ dependencies = [
  "alloy-primitives",
  "amd-sev-snp-attestation-verifier",
  "anyhow",
+ "contract-stub",
  "getrandom 0.2.16",
  "hex",
  "serde",
@@ -1362,7 +1364,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-build"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -1375,7 +1377,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-guest"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-sol-types",
  "anyhow",
@@ -1386,7 +1388,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-prover"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -1414,7 +1416,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-remote-client"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -1431,7 +1433,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-remote-protocol"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-primitives",
  "atakit-zk-types",
@@ -1445,7 +1447,7 @@ dependencies = [
 [[package]]
 name = "atakit-zk-types"
 version = "0.1.0"
-source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#e1d7ce3dea50748827a57e85926787c4e38ddb80"
+source = "git+https://github.com/automata-network/atakit-zkprover?branch=atakit-zk-prover-implementation#35e7e236831cee7c07ead3fca6e581874610cb74"
 dependencies = [
  "alloy-primitives",
  "hex",
@@ -4897,7 +4899,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

@@ -1,9 +1,6 @@
-use std::path::PathBuf;
-
 use crate::utils::ProverArgs;
-use anyhow::{anyhow, bail};
 use atakit_zk_prover::Program;
-use atakit_zk_types::{ProgramId, RemoteProgramVariant};
+use atakit_zk_types::ProgramId;
 use clap::Args;
 
 #[derive(Args)]
@@ -16,41 +13,16 @@ impl ProgramIdCli {
     pub fn run(&self) -> anyhow::Result<()> {
         let prover = self.prover.new_prover()?;
         let program = Program::new::<program_verifier::Guest>()?;
-        let mut selected_program_id = None;
-        for variant in program.variants() {
-            if variant.vm() != prover.config().vm {
-                continue;
-            }
-
+        
+        if let Some(variant) = program.variant(prover.config().vm) {
             let program_id = variant.program_id();
-            selected_program_id = Some(program_id.clone());
             match program_id {
-                ProgramId::Sp1 { vk_hash } => println!("SP1 vk_hash: {vk_hash}"),
+                ProgramId::Sp1 { vk_bytes } => println!("SP1 vk_hash: {vk_bytes}"),
                 ProgramId::Risc0 { image_id } => println!("Risc0 image_id: {image_id}"),
             }
         }
-
-        // // Convert LE words to BE for display
-        // let verify_proof_id_bytes = program_id.verify_proof_id.0;
-        // let be_words: [u32; 8] = unsafe { std::mem::transmute(verify_proof_id_bytes) };
-        // let be_converted: [u32; 8] = be_words.map(|word| word.to_be());
-        // let be_bytes: [u8; 32] = unsafe { std::mem::transmute(be_converted) };
-        // let be_b256 = B256::from(be_bytes);
-
-        // println!("ProgramID (Offchain): {}", be_b256);
         Ok(())
     }
-}
-
-fn remote_program_variant_json(program_id: ProgramId) -> anyhow::Result<String> {
-    let variant = match program_id {
-        ProgramId::Sp1 { vk_hash } => RemoteProgramVariant::Sp1 { vk_hash },
-        ProgramId::Risc0 { .. } => {
-            bail!("RISC0 remote program JSON requires artifact_uri; use upload instead")
-        }
-    };
-
-    Ok(serde_json::to_string_pretty(&variant)?)
 }
 
 #[cfg(test)]

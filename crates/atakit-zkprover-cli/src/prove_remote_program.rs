@@ -123,7 +123,7 @@ fn onchain_proof_output(
 
 fn program_id_b256(program_id: ProgramId) -> B256 {
     match program_id {
-        ProgramId::Sp1 { vk_hash } => vk_hash,
+        ProgramId::Sp1 { vk_bytes } => vk_bytes,
         ProgramId::Risc0 { image_id } => image_id,
     }
 }

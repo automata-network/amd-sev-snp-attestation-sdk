@@ -44,6 +44,14 @@ alloy_sol_types::sol! {
         bytes32[] certs;
         uint160[] certSerials;
     }
+
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    enum ZkCoProcessorType {
+        None,
+        RiscZero,
+        Succinct,
+        Pico
+    }
 }
 
 impl ProcessorType {
@@ -115,7 +123,10 @@ impl VerifierJournal {
         let mut offset = 0;
 
         if input.len() < 1 + 8 + 1 + 4 {
-            bail!("Journal too short: need at least 14 bytes, got {}", input.len());
+            bail!(
+                "Journal too short: need at least 14 bytes, got {}",
+                input.len()
+            );
         }
 
         let result_byte = input[offset];

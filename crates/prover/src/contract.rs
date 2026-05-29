@@ -7,9 +7,14 @@ use alloy_rpc_types::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolCall;
 use amd_sev_snp_attestation_verifier::stub::{
-    ISnpAttestation::*, ProcessorType, VerifierJournal, ZkCoProcessorType,
+    ProcessorType, VerificationResult, VerifierJournal, ZkCoProcessorType,
 };
 use anyhow::{anyhow, Context};
+use contract_stub::{
+    ISnpAttestation::*, ProcessorType as ContractProcessorType,
+    VerificationResult as ContractVerificationResult, VerifierJournal as ContractVerifierJournal,
+    ZkCoProcessorType as ContractZkCoProcessorType,
+};
 
 use crate::OnchainProof;
 
@@ -104,13 +109,14 @@ impl SnpVerifierContract {
     ) -> anyhow::Result<VerifierJournal> {
         let call = verifyAndAttestWithZKProof_0Call {
             output: journal.clone(),
-            zkCoprocessor: zk,
+            zkCoprocessor: contract_zk_type(zk)?,
             proofBytes: proof.clone(),
         };
-        Ok(self
+        let result = self
             .call(&call)
             .await
-            .with_context(|| format!("proof: {}, journal: {}", proof, journal))?)
+            .with_context(|| format!("proof: {}, journal: {}", proof, journal))?;
+        verifier_journal(result)
     }
 
     pub async fn submit_proof(&self, proof: &OnchainProof) -> anyhow::Result<TransactionReceipt> {
@@ -136,7 +142,7 @@ impl SnpVerifierContract {
     ) -> anyhow::Result<PendingTransactionBuilder<Ethereum>> {
         let call = verifyAndAttestWithZKProof_0Call {
             output: journal.clone(),
-            zkCoprocessor: zk,
+            zkCoprocessor: contract_zk_type(zk)?,
             proofBytes: proof.clone(),
         };
         Ok(self
@@ -148,14 +154,14 @@ impl SnpVerifierContract {
     pub async fn root_certs(&self, processor_model: ProcessorType) -> anyhow::Result<B256> {
         Ok(self
             .call(&rootCertsCall {
-                processorModel: processor_model,
+                processorModel: contract_processor_type(processor_model)?,
             })
             .await?)
     }
 
     pub async fn program_id(&self, zk: ZkCoProcessorType) -> anyhow::Result<B256> {
         let call = programIdentifierCall {
-            zkCoProcessorType: zk,
+            zkCoProcessorType: contract_zk_type(zk)?,
         };
         Ok(self.call(&call).await?)
     }
@@ -163,5 +169,30 @@ impl SnpVerifierContract {
     pub async fn max_time_diff(&self) -> anyhow::Result<u64> {
         Ok(self.call(&maxTimeDiffCall {}).await?)
     }
+}
 
+fn contract_zk_type(zk: ZkCoProcessorType) -> anyhow::Result<ContractZkCoProcessorType> {
+    ContractZkCoProcessorType::try_from(u8::from(zk))
+        .map_err(|err| anyhow!("invalid ZK coprocessor type: {}", err))
+}
+
+fn contract_processor_type(processor: ProcessorType) -> anyhow::Result<ContractProcessorType> {
+    ContractProcessorType::try_from(u8::from(processor))
+        .map_err(|err| anyhow!("invalid processor type: {}", err))
+}
+
+fn verifier_result(result: ContractVerificationResult) -> anyhow::Result<VerificationResult> {
+    VerificationResult::try_from(u8::from(result))
+        .map_err(|err| anyhow!("invalid verification result: {}", err))
+}
+
+fn verifier_journal(journal: ContractVerifierJournal) -> anyhow::Result<VerifierJournal> {
+    Ok(VerifierJournal {
+        result: verifier_result(journal.result)?,
+        timestamp: journal.timestamp,
+        processorModel: journal.processorModel,
+        reportHash: journal.reportHash,
+        certs: journal.certs,
+        certSerials: journal.certSerials,
+    })
 }
