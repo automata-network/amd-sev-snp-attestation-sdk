@@ -77,7 +77,7 @@ impl<'a> Cert<'a> {
         self.sig_algo
     }
 
-    pub fn pubkey(&self) -> PubKey {
+    pub fn pubkey(&self) -> PubKey<'_> {
         PubKey {
             algo: self.pubkey_algo.clone(),
             val: self.raw.public_key().subject_public_key.as_ref(),
@@ -178,7 +178,7 @@ impl<'a> CertChain<'a> {
         Ok(())
     }
 
-    pub fn leaf_pubkey(&self) -> PubKey {
+    pub fn leaf_pubkey(&self) -> PubKey<'_> {
         self.leaf().pubkey()
     }
 

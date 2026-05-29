@@ -3,17 +3,47 @@ use std::str::FromStr;
 use alloy_primitives::{FixedBytes, Uint};
 use alloy_sol_types::SolValue;
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
 use tiny_keccak::{Hasher, Keccak};
 
 alloy_sol_types::sol! {
-    #[sol(docs, extra_derives(Debug, Serialize, Deserialize))]
-    "../../contracts/src/types/SevSnpTypes.sol"
-}
+    #[derive(Debug)]
+    enum ProcessorType {
+        // 7003 series AMD EPYC Processor
+        Milan,
+        // 9004 series AMD EPYC Processor
+        Genoa,
+        // 97x4 series AMD EPYC Processor
+        Bergamo,
+        // 8004 series AMD EPYC Processor
+        Siena
+    }
 
-alloy_sol_types::sol! {
-    #[sol(docs, extra_derives(Debug, PartialEq, Serialize, Deserialize))]
-    "../../contracts/src/interfaces/ISnpAttestation.sol"
+    #[derive(Debug)]
+    enum VerificationResult {
+        // Attestation successfully verified
+        Success,
+        // Root certificate is not in the trusted set
+        RootCertNotTrusted,
+        // Attestation timestamp is outside acceptable range
+        InvalidTimestamp
+    }
+
+    #[derive(Debug)]
+    struct VerifierInput {
+        uint64 timestamp;
+        bytes rawReport;
+        bytes[] vekDerChain;
+    }
+
+    #[derive(Debug)]
+    struct VerifierJournal {
+        VerificationResult result;
+        uint64 timestamp;
+        uint8 processorModel;
+        bytes32 reportHash;
+        bytes32[] certs;
+        uint160[] certSerials;
+    }
 }
 
 impl ProcessorType {

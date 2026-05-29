@@ -1,0 +1,20 @@
+[package]
+name = "contract-stub"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+alloy-provider = { workspace = true }
+alloy-network = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-sol-types = { workspace = true, features = ["json"] }
+alloy-primitives = { workspace = true }
+alloy-signer-local = { workspace = true }
+serde.workspace = true
+tracing.workspace = true
+crossbeam.workspace = true
+lazy_static.workspace = true
+reqwest.workspace = true

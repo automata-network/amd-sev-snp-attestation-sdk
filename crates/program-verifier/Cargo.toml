@@ -1,0 +1,21 @@
+[package]
+name = "program-verifier"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+alloy-sol-types.workspace = true
+anyhow.workspace = true
+atakit-zk-guest.workspace = true
+serde.workspace = true
+byteorder.workspace = true
+serde_with.workspace = true
+serde_bytes.workspace = true
+x509-verifier-rust-crypto = { workspace = true }
+alloy-primitives.workspace = true
+hex.workspace = true
+amd-sev-snp-attestation-verifier.workspace = true
+
+[build-dependencies]
+atakit-zk-build = { workspace = true }
