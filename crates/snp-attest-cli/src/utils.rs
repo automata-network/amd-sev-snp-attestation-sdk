@@ -210,6 +210,7 @@ impl BackendSubcommand {
                     strategy,
                     private_key: args.sp1_private_key.clone(),
                     rpc_url: args.sp1_rpc_url.clone(),
+                    signer: None,
                 }))
             }
 
