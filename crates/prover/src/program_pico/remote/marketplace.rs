@@ -164,7 +164,9 @@ pub async fn prove_with_marketplace(
     let version = config.version.unwrap_or(0);
 
     // --- Setup Alloy provider + signer ---
-    let private_key_hex = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
+    let private_key_hex = private_key_hex
+        .strip_prefix("0x")
+        .unwrap_or(private_key_hex);
     let signer: PrivateKeySigner = private_key_hex
         .parse()
         .context("Failed to parse private key")?;
@@ -318,7 +320,10 @@ pub async fn prove_with_marketplace(
     let max_fee_u256 = U256::from(resolved_max_fee);
 
     let brev_token = IERC20::new(brev_token_addr, &provider);
-    println!("Approving BREV token spending ({} wei)...", resolved_max_fee);
+    println!(
+        "Approving BREV token spending ({} wei)...",
+        resolved_max_fee
+    );
 
     let approve_call = brev_token.approve(brevis_market_addr, max_fee_u256);
     let pending_tx = approve_call
@@ -479,7 +484,9 @@ pub async fn prove_with_marketplace(
                     println!("support Pico zkVM (version {version}).");
                     println!();
                     println!("Suggestions:");
-                    println!("  - Check the ProverNet dashboard: https://provernet.brevis.network/");
+                    println!(
+                        "  - Check the ProverNet dashboard: https://provernet.brevis.network/"
+                    );
                     println!("  - Verify your ELF URL is publicly accessible");
                     println!("  - Consider using local proving (--strategy local) instead");
                     println!("------------------");

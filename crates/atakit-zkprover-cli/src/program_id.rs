@@ -13,7 +13,7 @@ impl ProgramIdCli {
     pub fn run(&self) -> anyhow::Result<()> {
         let prover = self.prover.new_prover()?;
         let program = Program::new::<program_verifier::Guest>()?;
-        
+
         if let Some(variant) = program.variant(prover.config().vm) {
             let program_id = variant.program_id();
             match program_id {

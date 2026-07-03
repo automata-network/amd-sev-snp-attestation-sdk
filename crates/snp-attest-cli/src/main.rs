@@ -1,9 +1,9 @@
+mod debug;
+mod program_id;
+mod proof;
 mod prove;
 mod upload;
 mod utils;
-mod debug;
-mod proof;
-mod program_id;
 
 use clap::{Parser, Subcommand};
 use tracing::level_filters::LevelFilter;
