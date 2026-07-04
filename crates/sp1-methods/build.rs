@@ -29,8 +29,7 @@ fn main() {
 
     let use_docker = std::env::var("USE_DOCKER").is_ok();
     let workspace_directory = if use_docker {
-        let manifest_dir =
-            std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
         let workspace_root = std::path::Path::new(&manifest_dir)
             .parent()
             .and_then(|p| p.parent())

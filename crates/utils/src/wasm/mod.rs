@@ -42,6 +42,8 @@ pub fn parse_verified_journal(bytes: &[u8]) -> JsValue {
 pub fn encode_verified_journal(journal: JsValue) -> Vec<u8> {
     let wrapper: VerifierJournalWrapper =
         serde_wasm_bindgen::from_value(journal).expect("Failed to deserialize from JsValue");
-    let journal: VerifierJournal = wrapper.try_into().expect("Failed to convert to VerifierJournal");
+    let journal: VerifierJournal = wrapper
+        .try_into()
+        .expect("Failed to convert to VerifierJournal");
     journal.encode()
 }

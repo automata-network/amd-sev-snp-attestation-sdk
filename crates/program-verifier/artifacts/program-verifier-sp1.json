@@ -1,0 +1,9 @@
+{
+  "vm": "sp1",
+  "schema_version": 1,
+  "guest": "program-verifier",
+  "vk_bytes": "0x0009804928e608d3b08eba0463ed5f545c0fc2d6d60dfc8a2b50c9fc6ba73c49",
+  "vk_hash": "0x04c02494398234ec11d7408c3ed5f545607e16b65837f22856a193f86ba73c49",
+  "zkvm_version": "v6.1.0",
+  "build_mode": "local"
+}

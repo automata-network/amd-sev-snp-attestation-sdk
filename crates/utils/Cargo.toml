@@ -14,6 +14,7 @@ wasm = ["wasm-bindgen", "serde-wasm-bindgen", "getrandom"]
 
 [dependencies]
 amd-sev-snp-attestation-verifier = { path = "../verifier", default-features = false }
+contract-stub.workspace = true
 alloy-primitives = { version = "1.2", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4"
