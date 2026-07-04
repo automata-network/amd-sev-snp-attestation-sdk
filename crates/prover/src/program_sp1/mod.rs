@@ -7,7 +7,8 @@ use anyhow::anyhow;
 use lazy_static::lazy_static;
 use sp1_methods::{SP1_VERIFIER_ELF, SP1_VERIFIER_PK, SP1_VERIFIER_VK};
 use sp1_sdk::{
-    HashableKey, SP1Proof, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    HashableKey, NetworkSigner, SP1Proof, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+    SP1_CIRCUIT_VERSION,
 };
 
 use crate::{
@@ -31,6 +32,11 @@ pub struct SP1ProverConfig {
     pub strategy: SP1ProvingStrategy,
     pub private_key: Option<String>,
     pub rpc_url: Option<String>,
+    /// Optional delegated signer for `Network` proving. When set, it takes
+    /// precedence over `private_key` — the raw key need not be present in this
+    /// process (e.g. an IPC-backed signer that forwards to an out-of-process key
+    /// holder). Requires the vendored sp1-sdk `NetworkSigner::Custom` patch.
+    pub signer: Option<NetworkSigner>,
 }
 
 impl Default for SP1ProverConfig {
@@ -49,6 +55,7 @@ impl Default for SP1ProverConfig {
             rpc_url: std::env::var("SP1_RPC_URL")
                 .ok()
                 .or_else(|| std::env::var("NETWORK_RPC_URL").ok()),
+            signer: None,
         }
     }
 }

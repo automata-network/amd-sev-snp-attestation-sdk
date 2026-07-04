@@ -25,9 +25,7 @@ pub use program_risc0::{
 #[cfg(feature = "pico")]
 pub mod program_pico;
 #[cfg(feature = "pico")]
-pub use program_pico::{
-    MarketplaceConfig, PicoProverConfig, PicoProvingStrategy, ProgramPico,
-};
+pub use program_pico::{MarketplaceConfig, PicoProverConfig, PicoProvingStrategy, ProgramPico};
 
 pub fn set_prover_dev_mode(_dev_mode: bool) {
     #[cfg(feature = "sp1")]

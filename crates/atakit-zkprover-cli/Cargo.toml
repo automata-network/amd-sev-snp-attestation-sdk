@@ -1,0 +1,23 @@
+[package]
+name = "atakit-zkprover-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+atakit-zk-prover.workspace = true
+atakit-zk-types.workspace = true
+contract-stub.workspace = true
+serde.workspace = true
+x509-verifier-rust-crypto.workspace = true
+program-verifier.workspace = true
+alloy-primitives.workspace = true
+tracing-subscriber.workspace = true
+log.workspace = true
+tracing.workspace = true
+dotenvy.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

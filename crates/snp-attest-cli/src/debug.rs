@@ -1,5 +1,5 @@
-use amd_sev_snp_attestation_verifier::AttestationReport;
 use amd_sev_snp_attestation_prover::utils::AttestationReportWithVekCertChain;
+use amd_sev_snp_attestation_verifier::AttestationReport;
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
 use x509_verifier_rust_crypto::CertChain;

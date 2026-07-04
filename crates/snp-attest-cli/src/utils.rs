@@ -210,6 +210,7 @@ impl BackendSubcommand {
                     strategy,
                     private_key: args.sp1_private_key.clone(),
                     rpc_url: args.sp1_rpc_url.clone(),
+                    signer: None,
                 }))
             }
 
@@ -250,10 +251,10 @@ impl BackendSubcommand {
 
             #[cfg(feature = "pico")]
             BackendSubcommand::Pico(args) => {
-                use anyhow::anyhow;
                 use amd_sev_snp_attestation_prover::{
                     MarketplaceConfig, PicoProverConfig, PicoProvingStrategy,
                 };
+                use anyhow::anyhow;
                 use std::time::{SystemTime, UNIX_EPOCH};
 
                 let proving_strategy = if args.shared.dev {

@@ -12,7 +12,11 @@ pub(crate) fn gen_raw_proof<Input, Output>(
     raw_proof_type: RawProofType,
 ) -> anyhow::Result<RawProof> {
     let mut builder = ProverClient::builder().network();
-    if let Some(private_key) = &program.config().private_key {
+    // A delegated signer (if provided) takes precedence over a raw private key,
+    // so the key can stay out-of-process. Falls back to private_key / env.
+    if let Some(signer) = program.config().signer.clone() {
+        builder = builder.signer(signer);
+    } else if let Some(private_key) = &program.config().private_key {
         builder = builder.private_key(private_key);
     }
     if let Some(rpc_url) = &program.config().rpc_url {

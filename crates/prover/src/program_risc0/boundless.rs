@@ -8,9 +8,10 @@ use boundless_market::{
     },
     client::Client as BoundlessClient,
     contracts::FulfillmentData,
-    request_builder::OfferParams,
-    storage::storage_provider_from_env,
-    Deployment, StorageProvider,
+    price_oracle::{Amount, Asset},
+    request_builder::{OfferParams, RequestParams},
+    storage::{StorageUploader, StorageUploaderType},
+    Deployment, StandardUploader, StorageUploaderConfig,
 };
 use risc0_zkvm::Digest;
 
@@ -53,25 +54,28 @@ pub(crate) async fn submit_boundless_request(
     let private_key =
         PrivateKeySigner::from_slice(&private_key_bytes).context("Failed to parse private key")?;
 
-    let storage_provider = storage_provider_from_env()
-        .context("Failed to get storage provider (check PINATA_JWT env var)")?;
+    let storage_config = storage_uploader_config_from_env().context(
+        "Failed to get storage uploader config (check PINATA_JWT or S3_BUCKET env vars)",
+    )?;
 
     let client = BoundlessClient::builder()
         .with_rpc_url(rpc_url_parsed)
         .with_deployment(deployment)
-        .with_storage_provider(Some(storage_provider))
+        .with_uploader_config(&storage_config)
+        .await
+        .context("Failed to configure Boundless storage uploader")?
         .with_private_key(private_key)
         .config_offer_layer(|config| {
             config
-                .max_price_per_cycle(cfg.effective_max_price())
-                .min_price_per_cycle(cfg.effective_min_price())
+                .max_price_per_cycle(Amount::new(cfg.effective_max_price(), Asset::ETH))
+                .min_price_per_cycle(Amount::new(cfg.effective_min_price(), Asset::ETH))
         })
         .build()
         .await
         .context("Failed to build Boundless client")?;
 
     // Build request.
-    let mut request_builder = client.new_request().with_stdin(stdin);
+    let mut request_builder = RequestParams::new().with_stdin(stdin);
 
     // Set program (URL if provided, otherwise upload ELF).
     if let Some(url) = program_url {
@@ -90,10 +94,10 @@ pub(crate) async fn submit_boundless_request(
     // Configure offer params.
     let mut offer_builder = OfferParams::builder();
     if let Some(min_price) = cfg.min_price {
-        offer_builder.min_price(U256::from(min_price));
+        offer_builder.min_price(Amount::new(U256::from(min_price), Asset::ETH));
     }
     if let Some(max_price) = cfg.max_price {
-        offer_builder.max_price(U256::from(max_price));
+        offer_builder.max_price(Amount::new(U256::from(max_price), Asset::ETH));
     }
     if let Some((lock_timeout, timeout)) = cfg.effective_timeout() {
         offer_builder.lock_timeout(lock_timeout);
@@ -102,7 +106,7 @@ pub(crate) async fn submit_boundless_request(
     if let Some(ramp_up_period) = cfg.ramp_up_period {
         offer_builder.ramp_up_period(ramp_up_period);
     }
-    offer_builder.lock_collateral(cfg.effective_collateral());
+    offer_builder.lock_collateral(Amount::new(cfg.effective_collateral(), Asset::ZKC));
     request_builder = request_builder.with_offer(offer_builder);
 
     tracing::debug!("Boundless request: {:?}", &request_builder);
@@ -172,13 +176,17 @@ pub(crate) fn upload_image<Input, Output>(
     program: &ProgramRisc0<Input, Output>,
 ) -> anyhow::Result<()> {
     block_on(async {
-        let storage_provider = storage_provider_from_env()
-            .context("Failed to get storage provider (check PINATA_JWT env var)")?;
-
-        let elf_url = storage_provider
-            .upload_input(program.elf())
+        let storage_config = storage_uploader_config_from_env().context(
+            "Failed to get storage uploader config (check PINATA_JWT or S3_BUCKET env vars)",
+        )?;
+        let storage_uploader = StandardUploader::from_config(&storage_config)
             .await
-            .context("Failed to upload ELF to Pinata/IPFS")?;
+            .context("Failed to configure Boundless storage uploader")?;
+
+        let elf_url = storage_uploader
+            .upload_program(program.elf())
+            .await
+            .context("Failed to upload ELF to Boundless storage")?;
 
         tracing::info!(
             "Uploaded image {} to storage: {}",
@@ -188,4 +196,87 @@ pub(crate) fn upload_image<Input, Output>(
 
         Ok(())
     })
+}
+
+fn storage_uploader_config_from_env() -> anyhow::Result<StorageUploaderConfig> {
+    if is_risc0_dev_mode() {
+        return Ok(StorageUploaderConfig::dev_mode());
+    }
+
+    if let Ok(pinata_jwt) = std::env::var("PINATA_JWT") {
+        let mut builder = StorageUploaderConfig::builder();
+        builder
+            .storage_uploader(StorageUploaderType::Pinata)
+            .pinata_jwt(pinata_jwt);
+        if let Some(url) = optional_url_env("PINATA_API_URL")? {
+            builder.pinata_api_url(url);
+        }
+        if let Some(url) = optional_url_env("IPFS_GATEWAY_URL")? {
+            builder.ipfs_gateway_url(url);
+        }
+        return Ok(builder.build()?);
+    }
+
+    if let Ok(s3_bucket) = std::env::var("S3_BUCKET") {
+        let mut builder = StorageUploaderConfig::builder();
+        builder
+            .storage_uploader(StorageUploaderType::S3)
+            .s3_bucket(s3_bucket);
+        if let Ok(value) = std::env::var("S3_URL") {
+            builder.s3_url(value);
+        }
+        if let Ok(value) =
+            std::env::var("S3_ACCESS").or_else(|_| std::env::var("AWS_ACCESS_KEY_ID"))
+        {
+            builder.aws_access_key_id(value);
+        }
+        if let Ok(value) =
+            std::env::var("S3_SECRET").or_else(|_| std::env::var("AWS_SECRET_ACCESS_KEY"))
+        {
+            builder.aws_secret_access_key(value);
+        }
+        if let Ok(value) = std::env::var("AWS_REGION") {
+            builder.aws_region(value);
+        }
+        if let Some(value) = optional_bool_env("S3_USE_PRESIGNED")? {
+            builder.s3_presigned(value);
+        }
+        if let Some(value) = optional_bool_env("S3_PUBLIC_URL")? {
+            builder.s3_public_url(value);
+        }
+        return Ok(builder.build()?);
+    }
+
+    Err(anyhow!(
+        "No Boundless storage uploader configured. Set PINATA_JWT, S3_BUCKET, or RISC0_DEV_MODE."
+    ))
+}
+
+fn is_risc0_dev_mode() -> bool {
+    std::env::var("RISC0_DEV_MODE")
+        .ok()
+        .map(|value| value.to_lowercase())
+        .is_some_and(|value| value == "1" || value == "true" || value == "yes")
+}
+
+fn optional_url_env(name: &str) -> anyhow::Result<Option<Url>> {
+    std::env::var(name)
+        .ok()
+        .map(|value| {
+            value
+                .parse()
+                .with_context(|| format!("Failed to parse {name} as URL"))
+        })
+        .transpose()
+}
+
+fn optional_bool_env(name: &str) -> anyhow::Result<Option<bool>> {
+    std::env::var(name)
+        .ok()
+        .map(|value| {
+            value
+                .parse()
+                .with_context(|| format!("Failed to parse {name} as bool"))
+        })
+        .transpose()
 }

@@ -2,24 +2,24 @@
 
 #[cfg(feature = "pico")]
 pub extern crate sha2_pico as sha2;
-#[cfg(all(feature = "sp1", not(feature = "pico")))]
-pub extern crate sha2_sp1 as sha2;
 #[cfg(all(feature = "risc0", not(feature = "sp1"), not(feature = "pico")))]
 pub extern crate sha2_risc0 as sha2;
+#[cfg(all(feature = "sp1", not(feature = "pico")))]
+pub extern crate sha2_sp1 as sha2;
 #[cfg(all(not(feature = "sp1"), not(feature = "risc0"), not(feature = "pico")))]
 pub use sha2;
 
-#[cfg(feature = "sp1")]
-pub extern crate p256_sp1 as p256;
 #[cfg(all(feature = "risc0_unstable", not(feature = "sp1")))]
 pub extern crate p256_risc0 as p256;
+#[cfg(feature = "sp1")]
+pub extern crate p256_sp1 as p256;
 #[cfg(all(not(feature = "sp1"), not(feature = "risc0_unstable")))]
 pub use p256;
 
-#[cfg(feature = "sp1_rsa")]
-pub extern crate rsa_sp1 as rsa;
 #[cfg(all(feature = "risc0_rsa", not(feature = "sp1_rsa")))]
 pub extern crate rsa_risc0 as rsa;
+#[cfg(feature = "sp1_rsa")]
+pub extern crate rsa_sp1 as rsa;
 #[cfg(all(not(feature = "sp1_rsa"), not(feature = "risc0_rsa")))]
 pub use rsa;
 

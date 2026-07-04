@@ -27,11 +27,10 @@ pub(crate) fn gen_marketplace_proof<Input, Output>(
         ));
     }
 
-    let marketplace_config = program
-        .config()
-        .marketplace
-        .as_ref()
-        .ok_or_else(|| anyhow!("Marketplace config is required when using marketplace strategy"))?;
+    let marketplace_config =
+        program.config().marketplace.as_ref().ok_or_else(|| {
+            anyhow!("Marketplace config is required when using marketplace strategy")
+        })?;
 
     let input_bytes = bincode::serialize(&stdin_builder)?;
     let vk_bytes = program.compute_vk_bytes();
@@ -49,10 +48,13 @@ pub(crate) fn gen_marketplace_proof<Input, Output>(
     RawProof::from_proof(&(proof_bytes, vk), journal)
 }
 
-pub(crate) fn upload_image<Input, Output>(program: &ProgramPico<Input, Output>) -> anyhow::Result<()> {
+pub(crate) fn upload_image<Input, Output>(
+    program: &ProgramPico<Input, Output>,
+) -> anyhow::Result<()> {
     block_on(async {
-        let storage_provider = storage_provider_from_env()
-            .map_err(|e| anyhow!("Failed to get storage provider (check PINATA_JWT env var): {e}"))?;
+        let storage_provider = storage_provider_from_env().map_err(|e| {
+            anyhow!("Failed to get storage provider (check PINATA_JWT env var): {e}")
+        })?;
 
         let elf_url = storage_provider
             .upload_input(program.elf())
