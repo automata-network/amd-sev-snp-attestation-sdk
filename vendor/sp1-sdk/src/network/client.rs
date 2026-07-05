@@ -5,6 +5,7 @@
 use std::{
     result::Result::Ok as StdOk,
     str::FromStr,
+    sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -15,6 +16,7 @@ use reqwest_middleware::ClientWithMiddleware as HttpClientWithMiddleware;
 use serde::{de::DeserializeOwned, Serialize};
 use sp1_core_machine::io::SP1Stdin;
 use sp1_prover::{HashableKey, SP1VerifyingKey};
+use tokio::sync::OnceCell;
 use tonic::{transport::Channel, Code};
 
 use super::{
@@ -69,11 +71,14 @@ use crate::network::proto::{
 };
 
 /// A client for interacting with the network.
+#[derive(Clone)]
 pub struct NetworkClient {
     pub(crate) signer: NetworkSigner,
     pub(crate) http: HttpClientWithMiddleware,
     pub(crate) rpc_url: String,
     pub(crate) network_mode: NetworkMode,
+    /// Lazily-established gRPC channel, shared across clones and reused across calls.
+    pub(crate) channel: Arc<OnceCell<Channel>>,
 }
 
 #[async_trait]
@@ -116,7 +121,13 @@ impl NetworkClient {
             .pool_idle_timeout(Duration::from_secs(240))
             .build()
             .unwrap();
-        Self { signer, http: client.into(), rpc_url: rpc_url.into(), network_mode }
+        Self {
+            signer,
+            http: client.into(),
+            rpc_url: rpc_url.into(),
+            network_mode,
+            channel: Arc::new(OnceCell::new()),
+        }
     }
 
     /// Get the explorer URL for the current network mode.
@@ -295,9 +306,7 @@ impl NetworkClient {
         elf: &[u8],
     ) -> Result<CreateProgramResponse> {
         // Create the program artifact.
-        let mut store = self.artifact_store_client().await?;
-        let program_uri =
-            self.create_artifact_with_content(&mut store, ArtifactType::Program, &elf).await?;
+        let program_uri = self.create_artifact_with_content(ArtifactType::Program, &elf).await?;
 
         // Serialize the verifying key.
         let vk_encoded = bincode::serialize(&vk)?;
@@ -407,6 +416,7 @@ impl NetworkClient {
                                         execute_fail_cause,
                                         settlement_status,
                                         error,
+                                        ..Default::default()
                                     },
                                 )
                                 .await?
@@ -447,6 +457,7 @@ impl NetworkClient {
                                     execute_fail_cause,
                                     settlement_status,
                                     error,
+                                    ..Default::default()
                                 })
                                 .await?
                                 .into_inner();
@@ -529,44 +540,21 @@ impl NetworkClient {
         request_id: B256,
         timeout: Option<Duration>,
     ) -> Result<GetProofRequestDetailsResponse> {
-        let res = match self.network_mode {
-            NetworkMode::Mainnet => {
-                self.with_retry_timeout(
-                    || async {
-                        let mut rpc = self.auction_prover_network_client().await?;
-                        Ok(rpc
-                            .get_proof_request_details(GetProofRequestDetailsRequest {
-                                request_id: request_id.to_vec(),
-                            })
-                            .await?
-                            .into_inner())
-                    },
-                    timeout.unwrap_or(DEFAULT_RETRY_TIMEOUT),
-                    "getting proof request details",
-                )
-                .await?
-            }
-            NetworkMode::Reserved => {
-                let base_response = self
-                    .with_retry_timeout(
-                        || async {
-                            let mut rpc = self.base_prover_network_client().await?;
-                            Ok(rpc
-                                .get_proof_request_details(
-                                    crate::network::proto::base_types::GetProofRequestDetailsRequest {
-                                        request_id: request_id.to_vec(),
-                                    },
-                                )
-                                .await?
-                                .into_inner())
-                        },
-                        timeout.unwrap_or(DEFAULT_RETRY_TIMEOUT),
-                        "getting proof request details",
-                    )
-                    .await?;
-                Self::convert_base_to_auction_response(base_response)
-            }
-        };
+        let res = self
+            .with_retry_timeout(
+                || async {
+                    let mut rpc = self.prover_network_client().await?;
+                    Ok(rpc
+                        .get_proof_request_details(GetProofRequestDetailsRequest {
+                            request_id: request_id.to_vec(),
+                        })
+                        .await?
+                        .into_inner())
+                },
+                timeout.unwrap_or(DEFAULT_RETRY_TIMEOUT),
+                "getting proof request details",
+            )
+            .await?;
 
         Ok(res)
     }
@@ -614,16 +602,19 @@ impl NetworkClient {
         base_fee: u64,
         max_price_per_pgu: u64,
         domain: Vec<u8>,
+        private_stdin: bool,
     ) -> Result<RequestProofResponse> {
         // Calculate the deadline.
         let start = SystemTime::now();
         let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Invalid start time");
         let deadline = since_the_epoch.as_secs() + timeout_secs;
 
-        // Create the stdin artifact.
-        let mut store = self.artifact_store_client().await?;
-        let stdin_uri =
-            self.create_artifact_with_content(&mut store, ArtifactType::Stdin, &stdin).await?;
+        let stdin_uri = self
+            .create_artifact_with_content(
+                if private_stdin { ArtifactType::PrivateStdin } else { ArtifactType::Stdin },
+                &stdin,
+            )
+            .await?;
 
         // Send the request.
         match self.network_mode {
@@ -665,6 +656,7 @@ impl NetworkClient {
                             base_fee: base_fee.to_string(),
                             max_price_per_pgu: max_price_per_pgu.to_string(),
                             variant: AuctionTransactionVariant::RequestVariant.into(),
+                            stdin_private: private_stdin,
                         };
 
                         let request_response = rpc
@@ -703,6 +695,7 @@ impl NetworkClient {
                                 .clone()
                                 .map(|list| list.into_iter().map(|addr| addr.to_vec()).collect())
                                 .unwrap_or_default(),
+                            stdin_private: private_stdin,
                         };
 
                         let request_response = rpc
@@ -734,68 +727,72 @@ impl NetworkClient {
         self.auction_prover_network_client().await
     }
 
+    /// Returns the shared gRPC channel, built at most once.
+    ///
+    /// `OnceCell` rather than `new()` since `new()` is infallible but `configure_endpoint` isn't.
+    /// `connect_lazy` reconnects transparently, so the connection is reused across polls and a
+    /// dropped one self-heals on next use.
+    async fn channel(&self) -> Result<Channel> {
+        self.channel
+            .get_or_try_init(|| async {
+                tracing::debug!(rpc_url = %self.rpc_url, "establishing gRPC channel");
+                Ok(grpc::configure_endpoint(&self.rpc_url)?.connect_lazy())
+            })
+            .await
+            .cloned()
+    }
+
     // Helper methods for runtime proto type selection.
     pub(crate) async fn auction_prover_network_client(
         &self,
     ) -> Result<AuctionProverNetworkClient<Channel>> {
-        self.with_retry(
-            || async {
-                let channel = grpc::configure_endpoint(&self.rpc_url)?.connect().await?;
-                Ok(AuctionProverNetworkClient::new(channel))
-            },
-            "creating auction network client",
-        )
-        .await
+        Ok(AuctionProverNetworkClient::new(self.channel().await?))
     }
 
     pub(crate) async fn base_prover_network_client(
         &self,
     ) -> Result<BaseProverNetworkClient<Channel>> {
-        self.with_retry(
-            || async {
-                let channel = grpc::configure_endpoint(&self.rpc_url)?.connect().await?;
-                Ok(BaseProverNetworkClient::new(channel))
-            },
-            "creating base network client",
-        )
-        .await
+        Ok(BaseProverNetworkClient::new(self.channel().await?))
     }
 
     pub(crate) async fn artifact_store_client(&self) -> Result<ArtifactStoreClient<Channel>> {
-        self.with_retry(
-            || async {
-                let channel = grpc::configure_endpoint(&self.rpc_url)?.connect().await?;
-                Ok(ArtifactStoreClient::new(channel))
-            },
-            "creating artifact client",
-        )
-        .await
+        Ok(ArtifactStoreClient::new(self.channel().await?))
     }
 
     pub(crate) async fn create_artifact_with_content<T: Serialize + Send + Sync>(
         &self,
-        store: &mut ArtifactStoreClient<Channel>,
         artifact_type: ArtifactType,
         item: &T,
     ) -> Result<String> {
-        let signature = sign_message("create_artifact".as_bytes(), &self.signer).await?;
-        let request = CreateArtifactRequest { artifact_type: artifact_type.into(), signature };
-
-        // Create the artifact.
-        let response = store.create_artifact(request).await?.into_inner();
+        // Acquire the store inside the retry so a transient channel-connect failure is retried.
+        let response = self
+            .with_retry(
+                || async {
+                    let mut store = self.artifact_store_client().await?;
+                    let signature =
+                        sign_message("create_artifact".as_bytes(), &self.signer).await?;
+                    let request =
+                        CreateArtifactRequest { artifact_type: artifact_type.into(), signature };
+                    Ok(store.create_artifact(request).await?.into_inner())
+                },
+                "creating artifact",
+            )
+            .await?;
 
         let presigned_url = response.artifact_presigned_url;
         let uri = response.artifact_uri;
 
-        // Upload the content.
+        // Serialize and compress the content once before retrying uploads.
+        // Using compression level 3 for a good balance of speed and compression ratio.
+        let serialized = bincode::serialize::<T>(item)?;
+        let compressed = zstd::encode_all(&serialized[..], 3)
+            .map_err(|e| anyhow::anyhow!("Failed to compress artifact: {e}"))?;
+
+        // Upload the compressed content.
         self.with_retry(
             || async {
-                let response = self
-                    .http
-                    .put(&presigned_url)
-                    .body(bincode::serialize::<T>(item)?)
-                    .send()
-                    .await?;
+                let response =
+                    self.http.put(&presigned_url).body(compressed.clone()).send().await?;
 
                 if !response.status().is_success() {
                     return Err(anyhow::anyhow!(
@@ -862,58 +859,6 @@ impl NetworkClient {
                 .await
             }
             NetworkMode::Reserved => Ok(CancelRequestResponse::Unsupported),
-        }
-    }
-
-    /// Convert a base (reserved) `GetProofRequestDetailsResponse` to auction format.
-    ///
-    /// This is necessary because the public API returns the auction type by default,
-    /// but the reserved network uses a different `ProofRequest` schema.
-    fn convert_base_to_auction_response(
-        base_response: crate::network::proto::base_types::GetProofRequestDetailsResponse,
-    ) -> GetProofRequestDetailsResponse {
-        GetProofRequestDetailsResponse {
-            request: base_response.request.map(|base_req| {
-                crate::network::proto::auction_types::ProofRequest {
-                    request_id: base_req.request_id,
-                    vk_hash: base_req.vk_hash,
-                    version: base_req.version,
-                    mode: base_req.mode,
-                    strategy: base_req.strategy,
-                    program_uri: base_req.program_uri,
-                    stdin_uri: base_req.stdin_uri,
-                    deadline: base_req.deadline,
-                    cycle_limit: base_req.cycle_limit,
-                    gas_price: base_req.gas_price,
-                    fulfillment_status: base_req.fulfillment_status,
-                    execution_status: base_req.execution_status,
-                    requester: base_req.requester,
-                    fulfiller: base_req.fulfiller,
-                    program_name: base_req.program_name,
-                    requester_name: base_req.requester_name,
-                    fulfiller_name: base_req.fulfiller_name,
-                    created_at: base_req.created_at,
-                    updated_at: base_req.updated_at,
-                    fulfilled_at: base_req.fulfilled_at,
-                    tx_hash: base_req.tx_hash,
-                    cycles: base_req.cycles,
-                    public_values_hash: base_req.public_values_hash,
-                    deduction_amount: base_req.deduction_amount,
-                    refund_amount: base_req.refund_amount,
-                    gas_limit: base_req.gas_limit,
-                    gas_used: base_req.gas_used,
-                    execute_fail_cause: base_req.execute_fail_cause,
-                    settlement_status: base_req.settlement_status,
-                    program_public_uri: base_req.program_public_uri,
-                    stdin_public_uri: base_req.stdin_public_uri,
-                    min_auction_period: base_req.min_auction_period,
-                    whitelist: base_req.whitelist,
-                    // Auction-only fields not present in base - set to None/default
-                    base_fee: None,
-                    max_price_per_pgu: None,
-                    error: base_req.error,
-                }
-            }),
         }
     }
 }

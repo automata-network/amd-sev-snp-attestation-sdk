@@ -1,56 +1,97 @@
-//! # CPU Prover Builder
+//! # CUDA Prover Builder
 //!
-//! This module provides a builder for the [`CpuProver`].
-
-use sp1_cuda::MoongateServer;
-use sp1_prover::SP1Prover;
-
-use crate::utils::setup_memory_usage_monitoring;
+//! This module provides a builder for the [`CudaProver`].
 
 use super::CudaProver;
+use sp1_core_executor::SP1CoreOpts;
+use sp1_core_machine::riscv::RiscvAir;
+use sp1_cuda::CudaProver as CudaProverImpl;
+use sp1_hypercube::Machine;
+use sp1_primitives::SP1Field;
+use sp1_prover::worker::SP1LightNode;
 
 /// A builder for the [`CudaProver`].
 ///
 /// The builder is used to configure the [`CudaProver`] before it is built.
-#[derive(Debug, Default)]
 pub struct CudaProverBuilder {
-    moongate_server: Option<MoongateServer>,
+    cuda_device_id: Option<u32>,
+    /// Optional core options to configure the underlying CPU prover.
+    core_opts: Option<SP1CoreOpts>,
+    machine: Machine<SP1Field, RiscvAir<SP1Field>>,
+}
+
+impl Default for CudaProverBuilder {
+    fn default() -> Self {
+        Self::new_with_machine(RiscvAir::machine())
+    }
 }
 
 impl CudaProverBuilder {
-    /// Uses an external Moongate server with the provided endpoint.
-    ///
-    /// # Details
-    /// Run the CUDA prover with the provided endpoint for the Moongate (GPU prover) server.
-    /// Enables more customization and avoids `DinD` configurations.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use sp1_sdk::ProverClient;
-    ///
-    /// let prover = ProverClient::builder().cuda().server("http://...").build();
-    /// ```
+    /// Creates a new [`CudaProverBuilder`] with default settings.
     #[must_use]
-    pub fn server(self, endpoint: &str) -> ExternalMoongateServerCudaProverBuilder {
-        ExternalMoongateServerCudaProverBuilder { endpoint: endpoint.to_string() }
+    pub fn new() -> Self {
+        Self::new_with_machine(RiscvAir::machine())
     }
 
-    /// Allows to customize the embedded Moongate server.
+    /// Creates a new builder from a machine.
+    #[must_use]
+    pub fn new_with_machine(machine: Machine<SP1Field, RiscvAir<SP1Field>>) -> Self {
+        Self { machine, cuda_device_id: None, core_opts: None }
+    }
+
+    /// Sets the CUDA device id.
     ///
     /// # Details
-    /// The builder returned by this method allow to customize the embedded Moongate server port and
-    /// visible device. It is therefore possible to instantiate multiple [`CudaProver`s], each one
-    /// linked to a different GPU.
+    /// Run the CUDA prover with the provided device id, all operations will be performed on this
+    /// device index.
     ///
     /// # Example
     /// ```rust,no_run
     /// use sp1_sdk::ProverClient;
     ///
-    /// let prover = ProverClient::builder().cuda().local().port(3200).build();
+    /// let prover = ProverClient::builder().cuda().with_device_id(0).build();
     /// ```
     #[must_use]
-    pub fn local(self) -> LocalMoongateServerCudaProverBuilder {
-        LocalMoongateServerCudaProverBuilder::default()
+    pub fn with_device_id(mut self, id: u32) -> Self {
+        self.cuda_device_id = Some(id);
+        self
+    }
+
+    /// Sets the core options for the underlying CPU prover.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use sp1_core_executor::SP1CoreOpts;
+    /// use sp1_sdk::ProverClient;
+    ///
+    /// tokio_test::block_on(async {
+    ///     let mut opts = SP1CoreOpts::default();
+    ///     opts.shard_size = 500_000;
+    ///     let prover = ProverClient::builder().cuda().core_opts(opts).build().await;
+    /// });
+    /// ```
+    #[must_use]
+    pub fn core_opts(mut self, opts: SP1CoreOpts) -> Self {
+        self.core_opts = Some(opts);
+        self
+    }
+
+    /// Sets the core options for the underlying CPU prover (alias for `core_opts`).
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use sp1_core_executor::SP1CoreOpts;
+    /// use sp1_sdk::ProverClient;
+    ///
+    /// tokio_test::block_on(async {
+    ///     let mut opts = SP1CoreOpts::default();
+    ///     opts.shard_size = 500_000;
+    ///     let prover = ProverClient::builder().cuda().with_opts(opts).build().await;
+    /// });
+    /// ```
+    #[must_use]
+    pub fn with_opts(self, opts: SP1CoreOpts) -> Self {
+        self.core_opts(opts)
     }
 
     /// Builds a [`CudaProver`].
@@ -65,87 +106,16 @@ impl CudaProverBuilder {
     /// let prover = ProverClient::builder().cuda().build();
     /// ```
     #[must_use]
-    pub fn build(self) -> CudaProver {
-        CudaProver::new(SP1Prover::new(), self.moongate_server.unwrap_or_default())
-    }
-}
+    pub async fn build(self) -> CudaProver {
+        tracing::info!("initializing cuda prover");
+        let machine = self.machine;
+        let node =
+            SP1LightNode::with_opts_and_machine(machine, self.core_opts.unwrap_or_default()).await;
+        let cuda_prover = match self.cuda_device_id {
+            Some(id) => CudaProverImpl::new_with_id(id).await,
+            None => CudaProverImpl::new().await,
+        };
 
-/// A builder for the [`CudaProver`] with an external Moongate server.
-///
-/// This is not meant to be used directly. Use [`CudaProverBuilder::server`]
-/// instead.
-#[derive(Debug)]
-pub struct ExternalMoongateServerCudaProverBuilder {
-    endpoint: String,
-}
-
-impl ExternalMoongateServerCudaProverBuilder {
-    /// Builds a [`CudaProver`].
-    ///
-    /// # Details
-    /// This method will build a [`CudaProver`] with the given parameters.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use sp1_sdk::ProverClient;
-    ///
-    /// let prover = ProverClient::builder().cuda().server("http://...").build();
-    /// ```
-    #[must_use]
-    pub fn build(self) -> CudaProver {
-        CudaProver::new(SP1Prover::new(), MoongateServer::External { endpoint: self.endpoint })
-    }
-}
-
-/// A builder for the [`CudaProver`] with the embedded Moongate server.
-///
-/// This is not meant to be used directly. Use [`CudaProverBuilder::local`]
-/// instead.
-#[derive(Debug, Default)]
-pub struct LocalMoongateServerCudaProverBuilder {
-    visible_device_index: Option<u64>,
-    port: Option<u64>,
-}
-
-impl LocalMoongateServerCudaProverBuilder {
-    /// Sets the embedded Moongate server port.
-    ///
-    /// If not set, the default value is `3000`.
-    #[must_use]
-    pub fn port(mut self, port: u64) -> Self {
-        self.port = Some(port);
-        self
-    }
-
-    /// Sets the embedded Moongate visible device index.
-    ///
-    /// If not set, the default value is `3000`.
-    #[must_use]
-    pub fn visible_device(mut self, index: u64) -> Self {
-        self.visible_device_index = Some(index);
-        self
-    }
-
-    /// Builds a [`CudaProver`].
-    ///
-    /// # Details
-    /// This method will build a [`CudaProver`] with the given parameters.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use sp1_sdk::ProverClient;
-    ///
-    /// let prover = ProverClient::builder().cuda().local().visible_device(2).port(3002).build();
-    /// ```
-    #[must_use]
-    pub fn build(self) -> CudaProver {
-        setup_memory_usage_monitoring();
-        CudaProver::new(
-            SP1Prover::new(),
-            MoongateServer::Local {
-                visible_device_index: self.visible_device_index,
-                port: self.port,
-            },
-        )
+        CudaProver { node, prover: cuda_prover.expect("Failed to create the CUDA prover impl") }
     }
 }

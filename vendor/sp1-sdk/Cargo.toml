@@ -11,15 +11,16 @@
 
 [package]
 edition = "2021"
+rust-version = "1.88"
 name = "sp1-sdk"
-version = "5.2.4"
-build = "build.rs"
+version = "6.2.2"
+build = false
 autolib = false
 autobins = false
 autoexamples = false
 autotests = false
 autobenches = false
-description = "SP1 is a performant, 100% open-source, contributor-friendly zkVM."
+description = "The SP1 SDK for building and proving zkVM programs"
 readme = "README.md"
 keywords = [
     "sp1",
@@ -31,35 +32,58 @@ categories = ["cryptography"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/succinctlabs/sp1"
 
+[package.metadata.docs.rs]
+features = [
+    "network",
+    "blocking",
+]
+
 [features]
 bigint-rug = ["sp1-core-machine/bigint-rug"]
-cuda = []
-default = [
-    "network",
-    "reserved-capacity",
+blocking = []
+cuda = ["dep:sp1-cuda"]
+default = []
+experimental = ["sp1-prover/experimental"]
+groth16-cuda = [
+    "sp1-recursion-gnark-ffi/groth16-cuda",
+    "native-gnark",
 ]
-native-gnark = ["sp1-prover/native-gnark"]
+mprotect = [
+    "experimental",
+    "sp1-core-executor/mprotect",
+    "sp1-core-executor-runner/mprotect",
+    "sp1-core-machine/mprotect",
+    "sp1-hypercube/mprotect",
+    "sp1-prover/mprotect",
+    "sp1-recursion-executor/mprotect",
+]
+native-gnark = [
+    "dep:sp1-recursion-gnark-ffi",
+    "sp1-prover/native-gnark",
+]
 network = [
     "dep:prost",
+    "dep:aws-config",
+    "dep:aws-sdk-kms",
+    "dep:rustls",
     "dep:alloy-signer",
     "dep:alloy-signer-aws",
     "dep:alloy-signer-local",
     "dep:alloy-primitives",
-    "dep:tokio",
     "dep:reqwest",
     "dep:twirp",
     "dep:reqwest-middleware",
     "dep:tonic",
     "dep:backoff",
-    "dep:aws-sdk-kms",
-    "dep:aws-config",
-    "dep:async-trait",
-    "dep:rustls",
-    "dep:k256",
-    "dep:eventsource-stream",
+    "dep:zstd",
 ]
-profiling = ["sp1-core-executor/profiling"]
+profiling = [
+    "sp1-core-executor/profiling",
+    "sp1-core-executor-runner/profiling",
+    "sp1-prover/profiling",
+]
 reserved-capacity = ["network"]
+slow-tests = []
 tee-2fa = []
 
 [lib]
@@ -90,16 +114,11 @@ version = "1.0"
 optional = true
 default-features = false
 
-[dependencies.alloy-sol-types]
-version = "1.0"
-default-features = false
-
 [dependencies.anyhow]
-version = "1.0.83"
+version = "1.0.86"
 
 [dependencies.async-trait]
 version = "0.1.81"
-optional = true
 
 [dependencies.aws-config]
 version = "1.5.3"
@@ -107,7 +126,12 @@ optional = true
 
 [dependencies.aws-sdk-kms]
 version = "1.77.0"
+features = [
+    "default-https-client",
+    "rt-tokio",
+]
 optional = true
+default-features = false
 
 [dependencies.backoff]
 version = "0.4"
@@ -118,20 +142,16 @@ optional = true
 version = "1.3.3"
 
 [dependencies.cfg-if]
-version = "1.0"
+version = "1.0.3"
 
 [dependencies.dirs]
 version = "5.0.1"
 
 [dependencies.eventsource-stream]
 version = "0.2.0"
-optional = true
 
 [dependencies.futures]
-version = "0.3.30"
-
-[dependencies.hashbrown]
-version = "0.14.5"
+version = "0.3"
 
 [dependencies.hex]
 version = "0.4.3"
@@ -140,21 +160,15 @@ version = "0.4.3"
 version = "0.17.8"
 
 [dependencies.itertools]
-version = "0.13.0"
+version = "0.14.0"
 
 [dependencies.k256]
-version = "0.13.3"
+version = "0.13.4"
 features = ["serde"]
-optional = true
 
-[dependencies.p3-baby-bear]
-version = "=0.2.3-succinct"
-
-[dependencies.p3-field]
-version = "=0.2.3-succinct"
-
-[dependencies.p3-fri]
-version = "=0.2.3-succinct"
+[dependencies.num-bigint]
+version = "0.4.6"
+default-features = false
 
 [dependencies.prost]
 version = "0.13"
@@ -182,60 +196,77 @@ optional = true
 
 [dependencies.serde]
 version = "1.0.204"
-features = ["derive"]
+features = [
+    "derive",
+    "derive",
+]
 
-[dependencies.serde_json]
-version = "1.0.132"
+[dependencies.sha2]
+version = "0.10.8"
 
 [dependencies.sp1-build]
-version = "5.2.4"
+version = "6.2.2"
 
 [dependencies.sp1-core-executor]
-version = "5.2.4"
+version = "6.2.2"
+
+[dependencies.sp1-core-executor-runner]
+version = "6.2.2"
 
 [dependencies.sp1-core-machine]
-version = "5.2.4"
-default-features = true
+version = "6.2.2"
 
 [dependencies.sp1-cuda]
-version = "5.2.4"
+version = "6.2.2"
+optional = true
+
+[dependencies.sp1-hypercube]
+version = "6.2.2"
 
 [dependencies.sp1-primitives]
-version = "5.2.4"
+version = "6.2.2"
 
 [dependencies.sp1-prover]
-version = "5.2.4"
+version = "6.2.2"
 
-[dependencies.sp1-stark]
-version = "5.2.4"
+[dependencies.sp1-prover-types]
+version = "6.2.2"
+
+[dependencies.sp1-recursion-executor]
+version = "6.2.2"
+default-features = false
+
+[dependencies.sp1-recursion-gnark-ffi]
+version = "6.2.2"
+optional = true
+default-features = false
+
+[dependencies.sp1-verifier]
+version = "6.2.2"
+default-features = false
 
 [dependencies.strum]
-version = "0.26.3"
-
-[dependencies.strum_macros]
-version = "0.26.4"
-
-[dependencies.sysinfo]
-version = "0.30.13"
+version = "0.27.1"
+features = ["derive"]
 
 [dependencies.tempfile]
 version = "3.10.1"
 
 [dependencies.thiserror]
-version = "1.0.63"
+version = "1.0"
 
 [dependencies.tokio]
-version = "1.44.2"
-features = ["full"]
-optional = true
-
-[dependencies.tonic]
-version = "0.12"
+version = "1.42.0"
 features = [
-    "tls",
-    "tls-roots",
+    "fs",
+    "io-util",
+    "process",
+    "rt",
+    "sync",
+    "time",
+    "rt-multi-thread",
 ]
-optional = true
+default-features = false
 
 [dependencies.tracing]
 version = "0.1.40"
@@ -245,8 +276,53 @@ version = "0.13.0-succinct"
 optional = true
 package = "twirp-rs"
 
+[dependencies.zstd]
+version = "0.13"
+optional = true
+
+[dev-dependencies.rstest]
+version = "0.26.0"
+
+[dev-dependencies.tokio]
+version = "1.42.0"
+features = [
+    "macros",
+    "rt",
+]
+default-features = false
+
 [dev-dependencies.tokio-test]
-version = "0.4"
+version = "0.4.4"
+
+[target.'cfg(not(target_os = "ios"))'.dependencies.tonic]
+version = "0.12.3"
+features = [
+    "tls",
+    "tls",
+    "tls-roots",
+]
+optional = true
+
+[target.'cfg(target_os = "ios")'.dependencies.tonic]
+version = "0.12.3"
+features = [
+    "tls",
+    "tls",
+    "tls-webpki-roots",
+]
+optional = true
 
 [lints.clippy]
 print_stdout = "deny"
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+priority = 0
+check-cfg = [
+    "cfg(sp1_debug_constraints)",
+    "cfg(sp1_debug_global_memory)",
+    "cfg(sp1_core_runner_override)",
+    "cfg(sp1_use_native_executor)",
+    "cfg(sp1_use_portable_executor)",
+    "cfg(sp1_native_executor_available)",
+]

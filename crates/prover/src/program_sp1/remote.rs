@@ -1,5 +1,7 @@
 use anyhow::anyhow;
-use sp1_sdk::{network::builder::NetworkProverBuilder, ProverClient, SP1Stdin};
+use sp1_sdk::{
+    network::builder::NetworkProverBuilder, ProveRequest, Prover, ProverClient, SP1Stdin,
+};
 
 use crate::utils::block_on;
 
@@ -22,14 +24,14 @@ pub(crate) fn gen_raw_proof<Input, Output>(
     if let Some(rpc_url) = &program.config().rpc_url {
         builder = builder.rpc_url(rpc_url);
     }
-    let prover = builder.build();
-
-    let builder = prover.prove(program.pk(), &stdin);
-    let builder = match raw_proof_type {
-        RawProofType::Composite => builder.compressed(),
-        RawProofType::Groth16 => builder.groth16(),
-    };
-    let proof = builder.run()?;
+    let proof = block_on(async {
+        let prover = builder.build().await;
+        let builder = prover.prove(program.pk(), stdin).skip_simulation(true);
+        match raw_proof_type {
+            RawProofType::Composite => builder.compressed().await,
+            RawProofType::Groth16 => builder.groth16().await,
+        }
+    })?;
 
     RawProof::from_proof(
         &(proof.proof, program.vk()),
@@ -51,7 +53,7 @@ pub(crate) fn upload_image<Input, Output>(
         if let Some(api_url) = &program.config().rpc_url {
             builder = builder.rpc_url(api_url);
         }
-        let prover = builder.build();
+        let prover = builder.build().await;
         prover.register_program(program.vk(), program.elf()).await?;
         Ok(())
     })

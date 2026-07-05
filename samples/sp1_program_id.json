@@ -1,7 +1,7 @@
 {
   "program_id": {
-    "verifier_id": "0x00befda9ec1c5e8adafc32ff007d41cfc93ad7321c1cc5a1b01df9aee2732388",
-    "verify_proof_id": "0xf6d47e5fb6a21707e05f865ffc1cd40790b9d649861673705df33b6088237362"
+    "verifier_id": "0x00dc58b751e892f01a1116f5cad88447bd83feac68d930c4f6acce95cbc90c96",
+    "verify_proof_id": "0xa85b2c6e06bc247ab9de22427b44882d63f51f6c13c364232b9d596d960cc94b"
   },
   "zktype": "Succinct"
 }

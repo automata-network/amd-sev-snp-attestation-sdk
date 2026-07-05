@@ -1,6 +1,6 @@
 [package]
 name = "sp1-sdk"
-description = "SP1 is a performant, 100% open-source, contributor-friendly zkVM."
+description = "The SP1 SDK for building and proving zkVM programs"
 readme = "../../README.md"
 version = { workspace = true }
 edition = { workspace = true }
@@ -8,96 +8,131 @@ license = { workspace = true }
 repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
+rust-version = { workspace = true }
 
 [dependencies]
-prost = { version = "0.13", optional = true }
+prost = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-twirp = { package = "twirp-rs", version = "0.13.0-succinct", optional = true }
-async-trait = { version = "0.1.81", optional = true }
-reqwest-middleware = { version = "0.3.2", optional = true }
-reqwest = { version = "0.12.12", default-features = false, features = [
+twirp = { workspace = true, optional = true }
+async-trait = { workspace = true }
+reqwest-middleware = { workspace = true, optional = true }
+reqwest = { workspace = true, features = [
   "rustls-tls",
   "trust-dns",
   "stream",
   "json",
 ], optional = true }
-anyhow = "1.0.83"
+anyhow = { workspace = true }
 sp1-prover = { workspace = true }
-sp1-core-machine = { workspace = true, default-features = true }
-sp1-cuda = { workspace = true }
+sp1-verifier = { workspace = true }
+sp1-core-machine = { workspace = true }
+sp1-cuda = { workspace = true, optional = true }
 sp1-build = { workspace = true }
-futures = "0.3.30"
-bincode = "1.3.3"
-tokio = { version = "1.44.2", features = ["full"], optional = true }
-p3-field = { workspace = true }
-p3-baby-bear = { workspace = true }
-p3-fri = { workspace = true }
-indicatif = "0.17.8"
+futures = { workspace = true }
+bincode = { workspace = true }
+tokio = { workspace = true, features = [
+  "fs",
+  "io-util",
+  "process",
+  "rt",
+  "sync",
+  "time",
+  "rt-multi-thread",
+] }
+indicatif = { workspace = true }
 tracing = { workspace = true }
-hex = "0.4.3"
-dirs = "5.0.1"
-tempfile = "3.10.1"
-cfg-if = "1.0"
-strum = "0.26.3"
-strum_macros = "0.26.4"
-thiserror = "1.0.63"
-aws-sdk-kms = { version = "1.77.0", optional = true }
-aws-config = { version = "1.5.3", optional = true }
-rustls = { version = "0.23.27", features = ["ring"], optional = true }
-hashbrown = { workspace = true }
+hex = { workspace = true }
+dirs = { workspace = true }
+tempfile = { workspace = true }
+cfg-if = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
 sp1-core-executor = { workspace = true }
-sp1-stark = { workspace = true }
+sp1-core-executor-runner = { workspace = true }
+sp1-recursion-executor = { workspace = true }
+sp1-hypercube = { workspace = true }
 sp1-primitives = { workspace = true }
+sp1-prover-types = { workspace = true }
+sp1-recursion-gnark-ffi = { workspace = true, optional = true }
 itertools = { workspace = true }
-tonic = { version = "0.12", features = ["tls", "tls-roots"], optional = true }
-alloy-signer = { version = "1.0", default-features = false, optional = true }
-alloy-signer-aws = { version = "1.0", default-features = false, optional = true }
-alloy-signer-local = { version = "1.0", default-features = false, optional = true }
-alloy-sol-types = { version = "1.0", default-features = false }
-alloy-primitives = { version = "1.0", default-features = false, optional = true, features = [
+aws-config = { workspace = true, optional = true }
+aws-sdk-kms = { workspace = true, optional = true }
+rustls = { workspace = true, features = ["ring"], optional = true }
+alloy-signer = { workspace = true, optional = true }
+alloy-signer-aws = { workspace = true, optional = true }
+alloy-signer-local = { workspace = true, optional = true }
+alloy-primitives = { workspace = true, features = [
   "k256",
   "serde",
-] }
-backoff = { version = "0.4", features = ["tokio"], optional = true }
-sysinfo = "0.30.13"
-
+], optional = true }
+backoff = { workspace = true, features = ["tokio"], optional = true }
+zstd = { workspace = true, optional = true }
+num-bigint = { workspace = true }
+sha2 = { workspace = true }
 # TEE Dependencies
-k256 = { version = "0.13.3", features = ["serde"], optional = true } # Signing
-eventsource-stream = { version = "0.2.0", optional = true }          # SSE Extenstion for reqwest
+k256 = { workspace = true, features = ["serde"] } # Signing
+eventsource-stream = { workspace = true }         # SSE Extenstion for reqwest
+
+[target.'cfg(target_os = "ios")'.dependencies]
+tonic = { workspace = true, features = [
+  "tls",
+  "tls-webpki-roots",
+], optional = true }
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+tonic = { workspace = true, features = ["tls", "tls-roots"], optional = true }
 
 [dev-dependencies]
 test-artifacts = { path = "../test-artifacts" }
-tokio-test = { version = "0.4" }
+tokio = { workspace = true, features = ["macros", "rt"] }
+tokio-test = { workspace = true }
+rstest = { workspace = true }
 
 [features]
-default = ["network", "reserved-capacity"]
-native-gnark = ["sp1-prover/native-gnark"]
+default = []
+native-gnark = ["dep:sp1-recursion-gnark-ffi", "sp1-prover/native-gnark"]
+# TODO: Once alloy has a 1.* release, we can likely remove this feature flag, as there will be less
+# dependency resolution issues.
 network = [
   "dep:prost",
+  "dep:aws-config",
+  "dep:aws-sdk-kms",
+  "dep:rustls",
   "dep:alloy-signer",
   "dep:alloy-signer-aws",
   "dep:alloy-signer-local",
   "dep:alloy-primitives",
-  "dep:tokio",
   "dep:reqwest",
   "dep:twirp",
   "dep:reqwest-middleware",
   "dep:tonic",
   "dep:backoff",
-  "dep:aws-sdk-kms",
-  "dep:aws-config",
-  "dep:async-trait",
-  "dep:rustls",
-  "dep:k256",
-  "dep:eventsource-stream",
+  "dep:zstd",
 ]
 tee-2fa = []
 reserved-capacity = ["network"]
-cuda = []
+cuda = ["dep:sp1-cuda"]
 bigint-rug = ["sp1-core-machine/bigint-rug"]
+experimental = ["sp1-prover/experimental"]
+mprotect = [
+  "experimental",
+  "sp1-core-executor/mprotect",
+  "sp1-core-executor-runner/mprotect",
+  "sp1-core-machine/mprotect",
+  "sp1-hypercube/mprotect",
+  "sp1-prover/mprotect",
+  "sp1-recursion-executor/mprotect",
+]
+profiling = [
+  "sp1-core-executor/profiling",
+  "sp1-core-executor-runner/profiling",
+  "sp1-prover/profiling",
+]
+blocking = []
+groth16-cuda = ["sp1-recursion-gnark-ffi/groth16-cuda", "native-gnark"]
+slow-tests = []
 
-profiling = ["sp1-core-executor/profiling"]
+[package.metadata.docs.rs]
+features = ["network", "blocking"]
 
 [lints]
 workspace = true

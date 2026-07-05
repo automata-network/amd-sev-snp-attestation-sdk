@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 
 use super::prove::NetworkProveBuilder;
 use crate::{
-    cpu::{execute::CpuExecuteBuilder, CpuProver},
     network::{
         client::NetworkClient,
         proto::{
@@ -17,12 +16,12 @@ use crate::{
             GetProofRequestStatusResponse,
         },
         signer::NetworkSigner,
-        tee::client::Client as TeeClient,
+        tee::{client::Client as TeeClient, verify_tee_proof},
         Error, NetworkMode, DEFAULT_AUCTION_TIMEOUT_DURATION, DEFAULT_GAS_LIMIT,
         MAINNET_EXPLORER_URL, MAINNET_RPC_URL, PRIVATE_EXPLORER_URL, PRIVATE_NETWORK_RPC_URL,
         RESERVED_EXPLORER_URL, RESERVED_RPC_URL, TEE_NETWORK_RPC_URL,
     },
-    prover::verify_proof,
+    prover::{verify_proof, BaseProveRequest, SendFutureResult},
     ProofFromNetwork, Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
     SP1VerifyingKey,
 };
@@ -31,19 +30,93 @@ use crate::network::proto::GetProofRequestParamsResponse;
 
 use alloy_primitives::{Address, B256, U256};
 use anyhow::{Context, Result};
-use sp1_core_executor::{SP1Context, SP1ContextBuilder};
+use sp1_build::Elf;
+use sp1_core_executor::{SP1Context, StatusCode};
 use sp1_core_machine::io::SP1Stdin;
-use sp1_prover::{components::CpuProverComponents, HashableKey, SP1Prover, SP1_CIRCUIT_VERSION};
+use sp1_core_machine::riscv::RiscvAir;
+use sp1_hypercube::Machine;
+use sp1_primitives::SP1Field;
+use sp1_prover::worker::{SP1LightNode, SP1NodeCore};
+use sp1_prover::SP1_CIRCUIT_VERSION;
 
-use crate::utils::block_on;
 use tokio::time::sleep;
 
 /// An implementation of [`crate::ProverClient`] that can generate proofs on a remote RPC server.
+#[derive(Clone)]
 pub struct NetworkProver {
     pub(crate) client: NetworkClient,
-    pub(crate) prover: CpuProver,
+    pub(crate) node: SP1LightNode,
     pub(crate) tee_signers: Vec<Address>,
     pub(crate) network_mode: NetworkMode,
+    /// Whether to use hosted defaults for proof requests.
+    ///
+    /// When set, [`NetworkProver::prove`] skips local simulation and sets the cycle and gas limits
+    /// to their maximum, so that `prove(&pk, stdin).await` works without any network-specific
+    /// toggles. This is the behavior wanted by self-hosted clusters talking to the
+    /// network-gateway. It is independent of [`NetworkMode`]; a hosted prover runs in
+    /// [`NetworkMode::Reserved`].
+    pub(crate) hosted: bool,
+}
+
+impl Prover for NetworkProver {
+    // todo!(n): Remove usage of anyhow.
+    type ProvingKey = SP1ProvingKey;
+    type Error = anyhow::Error;
+    type ProveRequest<'a> = NetworkProveBuilder<'a>;
+
+    fn inner(&self) -> &SP1NodeCore {
+        self.node.inner()
+    }
+
+    fn setup(&self, elf: Elf) -> impl SendFutureResult<Self::ProvingKey, Self::Error> {
+        async move {
+            let vk = self.node.setup(&elf).await?;
+            let pk = SP1ProvingKey { vk, elf };
+            Ok(pk)
+        }
+    }
+
+    fn prove<'a>(&'a self, pk: &'a Self::ProvingKey, stdin: SP1Stdin) -> Self::ProveRequest<'a> {
+        let strategy = self.default_fulfillment_strategy();
+
+        // A hosted prover skips simulation and proves up to the maximum limits by default, so that
+        // `prove(&pk, stdin).await` works with no network-specific toggles. These remain overridable
+        // per request via the builder methods.
+        let (skip_simulation, cycle_limit, gas_limit) =
+            if self.hosted { (true, Some(u64::MAX), Some(u64::MAX)) } else { (false, None, None) };
+
+        NetworkProveBuilder {
+            base: BaseProveRequest::new(self, pk, stdin),
+            timeout: None,
+            strategy,
+            skip_simulation,
+            cycle_limit,
+            gas_limit,
+            tee_2fa: false,
+            min_auction_period: 0,
+            whitelist: None,
+            auctioneer: None,
+            executor: None,
+            verifier: None,
+            treasury: None,
+            max_price_per_pgu: None,
+            auction_timeout: None,
+            private_stdin: false,
+        }
+    }
+
+    fn verify(
+        &self,
+        proof: &SP1ProofWithPublicValues,
+        vkey: &SP1VerifyingKey,
+        status_code: Option<StatusCode>,
+    ) -> Result<(), crate::SP1VerificationError> {
+        if let Some(tee_proof) = &proof.tee_proof {
+            verify_tee_proof(&self.tee_signers, tee_proof, vkey, proof.public_values.as_ref())?;
+        }
+
+        verify_proof(self.inner(), self.version(), proof, vkey, status_code)
+    }
 }
 
 impl NetworkProver {
@@ -65,36 +138,64 @@ impl NetworkProver {
     ///
     /// Using a `NetworkSigner`:
     /// ```rust,no_run
-    /// use sp1_sdk::{network::NetworkMode, NetworkProver, NetworkSigner};
+    /// use sp1_sdk::{
+    ///     network::{signer::NetworkSigner, NetworkMode},
+    ///     NetworkProver,
+    /// };
     ///
     /// let signer = NetworkSigner::local("0x...").unwrap();
     /// let prover = NetworkProver::new(signer, "...", NetworkMode::Reserved);
     /// ```
     #[must_use]
-    pub fn new(signer: impl Into<NetworkSigner>, rpc_url: &str, network_mode: NetworkMode) -> Self {
+    pub async fn new(
+        signer: impl Into<NetworkSigner>,
+        rpc_url: &str,
+        network_mode: NetworkMode,
+    ) -> Self {
+        Self::new_with_machine(signer, rpc_url, network_mode, RiscvAir::machine()).await
+    }
+
+    #[must_use]
+    /// Same as `new` but with a custom machine
+    pub async fn new_with_machine(
+        signer: impl Into<NetworkSigner>,
+        rpc_url: &str,
+        network_mode: NetworkMode,
+        machine: Machine<SP1Field, RiscvAir<SP1Field>>,
+    ) -> Self {
         // Install default CryptoProvider if not already installed.
         let _ = rustls::crypto::ring::default_provider().install_default();
 
         let signer = signer.into();
-        let prover = CpuProver::new();
+        let node = SP1LightNode::new_with_machine(machine).await;
         let client = NetworkClient::new(signer, rpc_url, network_mode);
-        Self { client, prover, tee_signers: vec![], network_mode }
+        Self { client, node, tee_signers: vec![], network_mode, hosted: false }
     }
 
     /// Sets the list of TEE signers, used for verifying TEE proofs.
     #[must_use]
     pub fn with_tee_signers(mut self, tee_signers: Vec<Address>) -> Self {
         self.tee_signers = tee_signers;
+        self
+    }
 
+    /// Sets whether this prover uses hosted defaults (skip simulation, max cycle and gas limits).
+    ///
+    /// See [`NetworkProver::hosted`] for details.
+    #[must_use]
+    pub(crate) fn with_hosted(mut self, hosted: bool) -> Self {
+        self.hosted = hosted;
         self
     }
 
     /// Gets the network mode of this prover.
+    #[must_use]
     pub fn network_mode(&self) -> NetworkMode {
         self.network_mode
     }
 
     /// Gets the default fulfillment strategy for this prover's network mode.
+    #[must_use]
     pub fn default_fulfillment_strategy(&self) -> FulfillmentStrategy {
         match self.network_mode {
             NetworkMode::Mainnet => FulfillmentStrategy::Auction,
@@ -109,81 +210,12 @@ impl NetworkProver {
     /// use sp1_sdk::{ProverClient, SP1Stdin};
     ///
     /// tokio_test::block_on(async {
-    ///     let client = ProverClient::builder().network().build();
+    ///     let client = ProverClient::builder().network().build().await;
     ///     let balance = client.get_balance().await.unwrap();
     /// })
     /// ```
     pub async fn get_balance(&self) -> Result<U256> {
         self.client.get_balance().await
-    }
-
-    /// Creates a new [`CpuExecuteBuilder`] for simulating the execution of a program on the CPU.
-    ///
-    /// # Details
-    /// Note that this does not use the network in any capacity. The method is provided for
-    /// convenience.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use sp1_sdk::{Prover, ProverClient, SP1Stdin};
-    ///
-    /// let elf = &[1, 2, 3];
-    /// let stdin = SP1Stdin::new();
-    ///
-    /// let client = ProverClient::builder().cpu().build();
-    /// let (public_values, execution_report) = client.execute(elf, &stdin).run().unwrap();
-    /// ```
-    pub fn execute<'a>(&'a self, elf: &'a [u8], stdin: &SP1Stdin) -> CpuExecuteBuilder<'a> {
-        CpuExecuteBuilder {
-            prover: self.prover.inner(),
-            elf,
-            stdin: stdin.clone(),
-            context_builder: SP1ContextBuilder::default(),
-        }
-    }
-
-    /// A request to generate a proof for a given proving key and input.
-    ///
-    /// # Details
-    /// * `pk`: The proving key to use for the proof.
-    /// * `stdin`: The input to use for the proof.
-    ///
-    /// # Example
-    /// ```rust,no_run
-    /// use sp1_sdk::{Prover, ProverClient, SP1Stdin};
-    ///
-    /// let elf = &[1, 2, 3];
-    /// let stdin = SP1Stdin::new();
-    ///
-    /// let client = ProverClient::builder().network().build();
-    /// let (pk, vk) = client.setup(elf);
-    /// let proof = client.prove(&pk, &stdin).run();
-    /// ```
-    pub fn prove<'a>(
-        &'a self,
-        pk: &'a SP1ProvingKey,
-        stdin: &'a SP1Stdin,
-    ) -> NetworkProveBuilder<'a> {
-        NetworkProveBuilder {
-            prover: self,
-            mode: SP1ProofMode::Core,
-            pk,
-            stdin: stdin.clone(),
-            timeout: None,
-            strategy: self.default_fulfillment_strategy(),
-            skip_simulation: false,
-            cycle_limit: None,
-            gas_limit: None,
-            tee_2fa: false,
-            min_auction_period: 1,
-            whitelist: None,
-            auctioneer: None,
-            executor: None,
-            verifier: None,
-            treasury: None,
-            max_price_per_pgu: None,
-            auction_timeout: None,
-        }
     }
 
     /// Registers a program if it is not already registered.
@@ -197,13 +229,14 @@ impl NetworkProver {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use sp1_sdk::{Prover, ProverClient, SP1Stdin};
+    /// use sp1_sdk::{Elf, Prover, ProverClient, ProvingKey, SP1Stdin};
     ///
-    /// let elf = &[1, 2, 3];
-    /// let client = ProverClient::builder().network().build();
-    /// let (pk, vk) = client.setup(elf);
-    ///
-    /// let vk_hash = client.register_program(&vk, elf);
+    /// tokio_test::block_on(async {
+    ///     let elf = Elf::Static(&[1, 2, 3]);
+    ///     let client = ProverClient::builder().network().build().await;
+    ///     let pk = client.setup(elf).await.unwrap();
+    ///     let vk_hash = client.register_program(&pk.verifying_key(), pk.elf()).await.unwrap();
+    /// });
     /// ```
     pub async fn register_program(&self, vk: &SP1VerifyingKey, elf: &[u8]) -> Result<B256> {
         self.client.register_program(vk, elf).await
@@ -218,7 +251,7 @@ impl NetworkProver {
     /// ```rust,no_run
     /// use sp1_sdk::{ProverClient, SP1ProofMode};
     /// tokio_test::block_on(async {
-    ///     let client = ProverClient::builder().network().build();
+    ///     let client = ProverClient::builder().network().build().await;
     ///     let params = client.get_proof_request_params(SP1ProofMode::Compressed).await.unwrap();
     /// })
     /// ```
@@ -250,7 +283,7 @@ impl NetworkProver {
     ///
     /// tokio_test::block_on(async {
     ///     let request_id = B256::from_slice(&vec![1u8; 32]);
-    ///     let client = ProverClient::builder().network().build();
+    ///     let client = ProverClient::builder().network().build().await;
     ///     let (status, maybe_proof) = client.get_proof_status(request_id).await.unwrap();
     /// })
     /// ```
@@ -278,13 +311,12 @@ impl NetworkProver {
     ///
     /// tokio_test::block_on(async {
     ///     let request_id = B256::from_slice(&vec![1u8; 32]);
-    ///     let client = ProverClient::builder().network().build();
+    ///     let client = ProverClient::builder().network().build().await;
     ///     let request = client.get_proof_request(request_id).await.unwrap();
     /// })
     /// ```
     pub async fn get_proof_request(&self, request_id: B256) -> Result<Option<ProofRequest>> {
         let res = self.client.get_proof_request_details(request_id, None).await?;
-
         Ok(res.request)
     }
 
@@ -303,7 +335,7 @@ impl NetworkProver {
     ///
     /// tokio_test::block_on(async {
     ///     let request_id = B256::from_slice(&vec![1u8; 32]);
-    ///     let client = ProverClient::builder().network().build();
+    ///     let client = ProverClient::builder().network().build().await;
     ///     let (maybe_proof, fulfillment_status) =
     ///         client.process_proof_status(request_id, None).await.unwrap();
     /// })
@@ -319,28 +351,26 @@ impl NetworkProver {
 
         let maybe_proof = maybe_proof.map(Into::into);
 
-        // Check if current time exceeds deadline. If so, the proof has timed out.
+        let execution_status = ExecutionStatus::try_from(status.execution_status()).unwrap();
+        let fulfillment_status = FulfillmentStatus::try_from(status.fulfillment_status()).unwrap();
+
+        // Check fulfillment before the deadline — a fulfilled proof should be
+        // returned even if polled after the deadline has passed.
+        if fulfillment_status == FulfillmentStatus::Fulfilled {
+            return Ok((maybe_proof, fulfillment_status));
+        }
+        if execution_status == ExecutionStatus::Unexecutable {
+            return Err(Error::RequestUnexecutable { request_id: request_id.to_vec() }.into());
+        }
+        if fulfillment_status == FulfillmentStatus::Unfulfillable {
+            return Err(Error::RequestUnfulfillable { request_id: request_id.to_vec() }.into());
+        }
+
+        // Only check the deadline for requests that are still in progress.
         let current_time =
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
         if current_time > status.deadline() {
             return Err(Error::RequestTimedOut { request_id: request_id.to_vec() }.into());
-        }
-
-        // Get the execution and fulfillment statuses.
-        let execution_status = ExecutionStatus::try_from(status.execution_status()).unwrap();
-        let fulfillment_status = FulfillmentStatus::try_from(status.fulfillment_status()).unwrap();
-
-        // Check the execution status.
-        if execution_status == ExecutionStatus::Unexecutable {
-            return Err(Error::RequestUnexecutable { request_id: request_id.to_vec() }.into());
-        }
-
-        // Check the fulfillment status.
-        if fulfillment_status == FulfillmentStatus::Fulfilled {
-            return Ok((maybe_proof, fulfillment_status));
-        }
-        if fulfillment_status == FulfillmentStatus::Unfulfillable {
-            return Err(Error::RequestUnfulfillable { request_id: request_id.to_vec() }.into());
         }
 
         Ok((None, fulfillment_status))
@@ -386,6 +416,7 @@ impl NetworkProver {
         base_fee: u64,
         max_price_per_pgu: u64,
         domain: Vec<u8>,
+        private_stdin: bool,
     ) -> Result<B256> {
         if self.client.rpc_url == TEE_NETWORK_RPC_URL && strategy != FulfillmentStrategy::Reserved {
             return Err(anyhow::anyhow!(
@@ -453,6 +484,7 @@ impl NetworkProver {
                 base_fee,
                 max_price_per_pgu,
                 domain,
+                private_stdin,
             )
             .await?;
 
@@ -516,7 +548,7 @@ impl NetworkProver {
             }
             let remaining_timeout = timeout.map(|t| {
                 let elapsed = start_time.elapsed();
-                t.checked_sub(elapsed).unwrap_or_default()
+                t.checked_sub(elapsed).unwrap_or(Duration::from_secs(0))
             });
 
             let (maybe_proof, fulfillment_status) =
@@ -570,10 +602,12 @@ impl NetworkProver {
         verifier: Option<Address>,
         treasury: Option<Address>,
         max_price_per_pgu: Option<u64>,
+        private_stdin: bool,
     ) -> Result<B256> {
         let vk_hash = self.register_program(&pk.vk, &pk.elf).await?;
-        let (cycle_limit, gas_limit, public_values_hash) =
-            self.get_execution_limits(cycle_limit, gas_limit, &pk.elf, stdin, skip_simulation)?;
+        let (cycle_limit, gas_limit, public_values_hash) = self
+            .get_execution_limits(cycle_limit, gas_limit, &pk.elf, stdin, skip_simulation)
+            .await?;
         let (auctioneer, executor, verifier, treasury, max_price_per_pgu, base_fee, domain) = self
             .get_auction_request_params(
                 mode,
@@ -603,6 +637,7 @@ impl NetworkProver {
             base_fee,
             max_price_per_pgu,
             domain,
+            private_stdin,
         )
         .await
     }
@@ -627,6 +662,7 @@ impl NetworkProver {
         treasury: Option<Address>,
         max_price_per_pgu: Option<u64>,
         auction_timeout: Option<Duration>,
+        private_stdin: bool,
     ) -> Result<SP1ProofWithPublicValues> {
         #[allow(unused_mut)]
         let mut whitelist = whitelist.clone();
@@ -651,16 +687,18 @@ impl NetworkProver {
                     verifier,
                     treasury,
                     max_price_per_pgu,
+                    private_stdin,
                 )
                 .await?;
 
             // If 2FA is enabled, spawn a task to get the tee proof.
             // Note: We only support one type of TEE proof for now.
             let handle = if tee_2fa {
+                let elf_vec = pk.elf.to_vec();
                 let request = super::tee::api::TEERequest::new(
                     &self.client.signer,
                     *request_id,
-                    pk.elf.clone(),
+                    elf_vec,
                     stdin.clone(),
                     cycle_limit.unwrap_or_else(|| {
                         super::utils::get_default_cycle_limit_for_mode(self.network_mode)
@@ -686,11 +724,11 @@ impl NetworkProver {
                         if let Some(network_error) = e.downcast_ref::<Error>() {
                             if matches!(
                                 network_error,
-                                Error::RequestUnfulfillable { .. } |
-                                    Error::RequestTimedOut { .. } |
-                                    Error::RequestAuctionTimedOut { .. }
-                            ) && strategy == FulfillmentStrategy::Auction &&
-                                whitelist.is_none()
+                                Error::RequestUnfulfillable { .. }
+                                    | Error::RequestTimedOut { .. }
+                                    | Error::RequestAuctionTimedOut { .. }
+                            ) && strategy == FulfillmentStrategy::Auction
+                                && whitelist.is_none()
                             {
                                 tracing::warn!(
                                     "Retrying auction request with fallback whitelist..."
@@ -746,7 +784,7 @@ impl NetworkProver {
     ///    program. This is the default behavior.
     /// 3. Otherwise, use the default limits ([`MAINNET_DEFAULT_CYCLE_LIMIT`] or
     ///    [`RESERVED_DEFAULT_CYCLE_LIMIT`] and [`DEFAULT_GAS_LIMIT`]).
-    fn get_execution_limits(
+    async fn get_execution_limits(
         &self,
         cycle_limit: Option<u64>,
         gas_limit: Option<u64>,
@@ -780,9 +818,9 @@ impl NetworkProver {
         // One of the limits were not provided and simulation is not skipped, so simulate to get
         // one. or both limits.
         let execute_result = self
-            .prover
-            .inner()
-            .execute(elf, stdin, SP1Context::builder().calculate_gas(true).build())
+            .node
+            .execute(elf, stdin.clone(), SP1Context::builder().calculate_gas(true).build())
+            .await
             .map_err(|_| Error::SimulationFailed)?;
 
         let (_, committed_value_digest, report) = execute_result;
@@ -794,7 +832,7 @@ impl NetworkProver {
             cycle_limit_value
         };
         let final_gas_limit = if gas_limit.is_none() {
-            report.gas.unwrap_or(DEFAULT_GAS_LIMIT)
+            report.gas().unwrap_or(DEFAULT_GAS_LIMIT)
         } else {
             gas_limit_value
         };
@@ -880,102 +918,6 @@ impl NetworkProver {
         let remainder = amount % 1_000_000_000_000_000_000;
         let frac = remainder / 100_000_000_000_000;
         format!("{whole}.{frac:04}")
-    }
-}
-
-impl Prover<CpuProverComponents> for NetworkProver {
-    fn setup(&self, elf: &[u8]) -> (SP1ProvingKey, SP1VerifyingKey) {
-        self.prover.setup(elf)
-    }
-
-    fn inner(&self) -> &SP1Prover {
-        self.prover.inner()
-    }
-
-    fn prove(
-        &self,
-        pk: &SP1ProvingKey,
-        stdin: &SP1Stdin,
-        mode: SP1ProofMode,
-    ) -> Result<SP1ProofWithPublicValues> {
-        block_on(self.prove_impl(
-            pk,
-            stdin,
-            mode,
-            self.default_fulfillment_strategy(),
-            None,
-            false,
-            None,
-            None,
-            false,
-            0,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ))
-    }
-
-    fn verify(
-        &self,
-        bundle: &SP1ProofWithPublicValues,
-        vkey: &SP1VerifyingKey,
-    ) -> Result<(), crate::SP1VerificationError> {
-        if let Some(tee_proof) = &bundle.tee_proof {
-            if self.tee_signers.is_empty() {
-                return Err(crate::SP1VerificationError::Other(anyhow::anyhow!(
-                    "TEE integrity proof verification is enabled, but no TEE signers are provided"
-                )));
-            }
-
-            let mut bytes = Vec::new();
-
-            // Push the version hash.
-            let version_hash =
-                alloy_primitives::keccak256(crate::network::tee::SP1_TEE_VERSION.to_le_bytes());
-            bytes.extend_from_slice(version_hash.as_ref());
-
-            // Push the vkey.
-            bytes.extend_from_slice(&vkey.bytes32_raw());
-
-            // Push the public values hash.
-            let public_values_hash = alloy_primitives::keccak256(&bundle.public_values);
-            bytes.extend_from_slice(public_values_hash.as_ref());
-
-            // Compute the message digest.
-            let message_digest = alloy_primitives::keccak256(&bytes);
-
-            // Parse the signature.
-            let signature = k256::ecdsa::Signature::from_bytes(tee_proof[5..69].into())
-                .expect("Invalid signature");
-            // The recovery id is the last byte of the signature minus 27.
-            let recovery_id =
-                k256::ecdsa::RecoveryId::from_byte(tee_proof[4] - 27).expect("Invalid recovery id");
-
-            // Recover the signer.
-            let signer = k256::ecdsa::VerifyingKey::recover_from_prehash(
-                message_digest.as_ref(),
-                &signature,
-                recovery_id,
-            )
-            .unwrap();
-            let address = alloy_primitives::Address::from_public_key(&signer);
-
-            // Verify the proof.
-            if self.tee_signers.contains(&address) {
-                verify_proof(self.prover.inner(), self.version(), bundle, vkey)
-            } else {
-                Err(crate::SP1VerificationError::Other(anyhow::anyhow!(
-                    "Invalid TEE proof, signed by unknown address {}",
-                    address
-                )))
-            }
-        } else {
-            verify_proof(self.prover.inner(), self.version(), bundle, vkey)
-        }
     }
 }
 

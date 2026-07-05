@@ -37,7 +37,7 @@ pub enum Error {
     },
 
     /// An error occurred while interacting with the RPC server.
-    #[error("RPC error")]
+    #[error("RPC error: {0}")]
     RpcError(#[from] Status),
 
     /// An unknown error occurred.

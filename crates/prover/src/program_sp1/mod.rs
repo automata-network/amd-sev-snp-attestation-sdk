@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use lazy_static::lazy_static;
 use sp1_methods::{SP1_VERIFIER_ELF, SP1_VERIFIER_PK, SP1_VERIFIER_VK};
 use sp1_sdk::{
-    HashableKey, NetworkSigner, SP1Proof, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
-    SP1_CIRCUIT_VERSION,
+    network::signer::NetworkSigner, HashableKey, SP1Proof, SP1ProvingKey, SP1Stdin,
+    SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 
 use crate::{

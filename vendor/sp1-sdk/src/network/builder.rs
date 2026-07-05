@@ -3,28 +3,55 @@
 //! This module provides a builder for the [`NetworkProver`].
 
 use alloy_primitives::Address;
+use sp1_core_machine::riscv::RiscvAir;
+use sp1_hypercube::Machine;
+use sp1_primitives::SP1Field;
 
 use crate::{
     network::{signer::NetworkSigner, NetworkMode, TEE_NETWORK_RPC_URL},
     NetworkProver,
 };
 
-#[cfg(feature = "tee-2fa")]
-use crate::network::retry::{self, DEFAULT_RETRY_TIMEOUT};
-
 /// A builder for the [`NetworkProver`].
 ///
 /// The builder is used to configure the [`NetworkProver`] before it is built.
-#[derive(Default)]
 pub struct NetworkProverBuilder {
     pub(crate) private_key: Option<String>,
     pub(crate) rpc_url: Option<String>,
     pub(crate) tee_signers: Option<Vec<Address>>,
     pub(crate) signer: Option<NetworkSigner>,
     pub(crate) network_mode: Option<NetworkMode>,
+    pub(crate) hosted: bool,
+    pub(crate) machine: Machine<SP1Field, RiscvAir<SP1Field>>,
+}
+
+impl Default for NetworkProverBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NetworkProverBuilder {
+    /// Creates a new [`NetworkProverBuilder`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::new_with_machine(RiscvAir::machine())
+    }
+
+    /// Creates a new [`NetworkProverBuilder`] with a given machine.
+    #[must_use]
+    pub const fn new_with_machine(machine: Machine<SP1Field, RiscvAir<SP1Field>>) -> Self {
+        Self {
+            private_key: None,
+            rpc_url: None,
+            tee_signers: None,
+            signer: None,
+            network_mode: None,
+            hosted: false,
+            machine,
+        }
+    }
+
     /// Sets the Secp256k1 private key (same format as the one used by Ethereum).
     ///
     /// # Details
@@ -79,6 +106,27 @@ impl NetworkProverBuilder {
         self
     }
 
+    /// Configures the prover for hosted proving.
+    ///
+    /// # Details
+    /// Hosted proving runs in [`NetworkMode::Reserved`] and makes `prove(&pk, stdin).await` skip
+    /// local simulation and use the maximum cycle and gas limits by default, with no
+    /// network-specific toggles required. This matches the behavior expected by self-hosted
+    /// clusters talking to the network-gateway. The defaults remain overridable per request.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use sp1_sdk::ProverClient;
+    ///
+    /// let prover = ProverClient::builder().network().hosted().build();
+    /// ```
+    #[must_use]
+    pub fn hosted(mut self) -> Self {
+        self.hosted = true;
+        self.network_mode = Some(NetworkMode::Reserved);
+        self
+    }
+
     /// Sets the list of TEE signers, used for verifying TEE proofs.
     #[must_use]
     pub fn tee_signers(mut self, tee_signers: &[Address]) -> Self {
@@ -97,7 +145,7 @@ impl NetworkProverBuilder {
     ///
     /// Using a local private key:
     /// ```rust,no_run
-    /// use sp1_sdk::{NetworkSigner, ProverClient};
+    /// use sp1_sdk::{network::signer::NetworkSigner, ProverClient};
     ///
     /// let private_key = "...";
     /// let signer = NetworkSigner::local(private_key).unwrap();
@@ -106,7 +154,7 @@ impl NetworkProverBuilder {
     ///
     /// Using AWS KMS:
     /// ```rust,no_run
-    /// use sp1_sdk::{NetworkSigner, ProverClient};
+    /// use sp1_sdk::{network::signer::NetworkSigner, ProverClient};
     ///
     /// # async fn example() {
     /// let kms_key_arn = "arn:aws:kms:us-east-1:123456789:key/key-id";
@@ -139,7 +187,7 @@ impl NetworkProverBuilder {
     ///
     /// Using a local signer:
     /// ```rust,no_run
-    /// use sp1_sdk::{NetworkSigner, ProverClient};
+    /// use sp1_sdk::{network::signer::NetworkSigner, ProverClient};
     ///
     /// let private_key = "...";
     /// let signer = NetworkSigner::local(private_key).unwrap();
@@ -148,7 +196,7 @@ impl NetworkProverBuilder {
     ///
     /// Using AWS KMS:
     /// ```rust,no_run
-    /// use sp1_sdk::{NetworkSigner, ProverClient};
+    /// use sp1_sdk::{network::signer::NetworkSigner, ProverClient};
     ///
     /// # async fn example() {
     /// let kms_key_arn = "arn:aws:kms:us-east-1:123456789:key/key-id";
@@ -157,7 +205,8 @@ impl NetworkProverBuilder {
     /// # }
     /// ```
     #[must_use]
-    pub fn build(self) -> NetworkProver {
+    pub async fn build(self) -> NetworkProver {
+        tracing::info!("initializing network prover");
         let signer = if let Some(provided_signer) = self.signer {
             provided_signer
         } else {
@@ -179,26 +228,45 @@ impl NetworkProverBuilder {
                 .unwrap_or_else(|_| super::utils::get_default_rpc_url_for_mode(network_mode)),
         };
 
-        let tee_signers = self.tee_signers.unwrap_or_else(|| {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "tee-2fa")] {
-                    crate::utils::block_on(
-                        async {
-                            retry::retry_operation(
-                                || async {
-                                    crate::network::tee::get_tee_signers().await.map_err(Into::into)
-                                },
-                                Some(DEFAULT_RETRY_TIMEOUT),
-                                "get tee signers"
-                            ).await.expect("Failed to get TEE signers")
-                        }
-                    )
-                } else {
-                    vec![]
-                }
-            }
-        });
+        let tee_signers = match self.tee_signers {
+            Some(tee_signers) => tee_signers,
 
-        NetworkProver::new(signer, &rpc_url, network_mode).with_tee_signers(tee_signers)
+            #[cfg(feature = "tee-2fa")]
+            None => crate::network::retry::retry_operation(
+                || async { crate::network::tee::get_tee_signers().await.map_err(Into::into) },
+                Some(crate::network::retry::DEFAULT_RETRY_TIMEOUT),
+                "get tee signers",
+            )
+            .await
+            .expect("Failed to get TEE signers"),
+
+            #[cfg(not(feature = "tee-2fa"))]
+            None => vec![],
+        };
+
+        NetworkProver::new_with_machine(signer, &rpc_url, network_mode, self.machine)
+            .await
+            .with_tee_signers(tee_signers)
+            .with_hosted(self.hosted)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_is_not_hosted() {
+        let builder = NetworkProverBuilder::new();
+        assert!(!builder.hosted);
+        assert_eq!(builder.network_mode, None);
+    }
+
+    #[test]
+    fn test_hosted_sets_flag_and_reserved_mode() {
+        let builder = NetworkProverBuilder::new().hosted();
+        assert!(builder.hosted);
+        // Hosted proving always runs in reserved mode.
+        assert_eq!(builder.network_mode, Some(NetworkMode::Reserved));
     }
 }
