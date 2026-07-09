@@ -256,29 +256,41 @@ impl AttestationReport {
         self.author_key_en == 1
     }
 
-    /// Returns the cpu codename of the CPU used in the report.
+    /// Returns the CPU codename of the CPU used in the report.
+    ///
+    /// The mapping follows the AMD KDS "Determining the Product Name" table
+    /// (AMD publication 57230), matching google/go-sev-guest. The report's
+    /// `cpuid_fam_id` / `cpuid_mod_id` fields are already the *combined* CPUID
+    /// values, i.e. `ExtFamily + Family` and `(ExtModel << 4) | Model`:
+    ///
+    /// | Family      | Model     | Product |
+    /// |-------------|-----------|---------|
+    /// | 0x19 (25)   | 0x01 (1)  | Milan   | Zen 3, EPYC 7003
+    /// | 0x19 (25)   | 0x11 (17) | Genoa   | Zen 4, EPYC 9004 (e.g. Azure "v6" CVMs)
+    ///
+    /// Turin (Zen 5: Family 0x1A, Model 0x02) is intentionally not mapped here
+    /// because [`ProcessorType`] has no Turin variant yet.
     pub fn get_cpu_codename(&self) -> anyhow::Result<ProcessorType> {
-        // Notes: Report version must be 3 or above to have these previously reserved fields populated.
-        if self.version >= 3 {
-            let fam_id = self.cpuid_fam_id;
-            let mod_id = self.cpuid_mod_id;
-            let stepping = self.cpuid_step;
-            // 25: Zen 3, Zen 3+, Zen 4
-            // Milan: Zen 3, Genoa: Zen 4, Bergamo: Zen 4c
-            // Siena: Zen 4c, Turin: Zen 5, Venice: TBD.
-            if fam_id == 25 && mod_id == 1 {
-                return Ok(ProcessorType::Milan);
-            }
-
-            bail!(
-                "unknown processor type: Family: {}, Mod_id: {}, Stepping: {}",
-                fam_id,
-                mod_id,
-                stepping
-            );
+        // Report version must be >= 3 for the CPUID fields to be populated.
+        // Report version 2 predates Genoa, so assume Milan for those.
+        if self.version < 3 {
+            return Ok(ProcessorType::Milan);
         }
-        // For Report Version 2, assume Milan for now.
-        Ok(ProcessorType::Milan)
+
+        const ZEN3_ZEN4_FAMILY: u8 = 0x19; // 25
+        const MILAN_MODEL: u8 = 0x01;
+        const GENOA_MODEL: u8 = 0x11; // 17
+
+        match (self.cpuid_fam_id, self.cpuid_mod_id) {
+            (ZEN3_ZEN4_FAMILY, MILAN_MODEL) => Ok(ProcessorType::Milan),
+            (ZEN3_ZEN4_FAMILY, GENOA_MODEL) => Ok(ProcessorType::Genoa),
+            _ => bail!(
+                "unknown processor type: Family: {}, Mod_id: {}, Stepping: {}",
+                self.cpuid_fam_id,
+                self.cpuid_mod_id,
+                self.cpuid_step
+            ),
+        }
     }
 }
 
