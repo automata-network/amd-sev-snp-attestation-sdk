@@ -13,16 +13,16 @@
 Automata AMD SEV-SNP Attestation SDK is the most-feature complete SDK for AMD SEV-SNP development, it consists of two parts:
 
 * SEV-SNP library: it helps developers to generate the AMD SEV-SNP Attestation Report in different cloud service providers (CSP).
-* Risc0 and Succinct ZK host and guest programs to interact with the corresponding zkVM servers to generate the proofs, and constructs the [Automata AMD SEV-SNP Attestation](https://explorer-testnet.ata.network/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F) contract calls to perform the on-chain verification.
+* Risc0 and Succinct ZK host and guest programs to interact with the corresponding zkVM servers to generate the proofs, and constructs the [Automata AMD SEV-SNP Attestation](#deployment-information) contract calls to perform the on-chain verification.
 
 ### Environment Preparation
-Refer to [SEV-SNP](./sev-snp/README.md) to setup the AMD SEV-SNP CVM in different cloud service providers (CSP).
+Refer to [SEV-SNP](./crates/sev-snp/README.md) to setup the AMD SEV-SNP CVM in different cloud service providers (CSP).
 
 ## AMD SEV-SNP Attestation Generation
-Use [SEV-SNP](./sev-snp/README.md#generate-attestation) to generate the AMD SEV-SNP Attestation Report with VEK Cert, you can find an example in [sev_snp_attestation](./sev-snp/examples/attestation.rs).
+Use [SEV-SNP](./crates/sev-snp/README.md#generate-attestation) to generate the AMD SEV-SNP Attestation Report with VEK Cert, you can find an example in [sev_snp_attestation](./crates/sev-snp/examples/attestation.rs).
 
 ## AMD SEV-SNP Attestation Verification
-Combining the Attestation Generation and the ZK Optimization, you can generate an either Risc0 or SP1 ZK proof with the AMD SEV-SNP Attestation Report and the VEK Cert output, and verify it via [verifyAndAttestWithZKProof](https://explorer-testnet.ata.network:443/address/0xDe510E1F9258c94c5520B717210a301Cc8297F1F?tab=read_contract#57859ce0) method.
+Generate a RISC0 or SP1 proof from the attestation report and VEK certificate chain, then call [verifyAndAttestWithZKProof](./contracts/src/SEVAgentAttestation.sol). Always check that the returned `VerifierJournal.result` is `VerificationResult.Success`: root-certificate and timestamp failures can return an error result without reverting. Applications must also enforce their workload, TCB and certificate-revocation policies.
 
 ```solidity
 /**
@@ -34,35 +34,34 @@ function verifyAndAttestWithZKProof(
     bytes calldata output,
     ZkCoProcessorType zkCoprocessor,
     bytes calldata proofBytes
-)
+) external returns (VerifierJournal memory parsed);
 ```
+
+This overload uses the latest allowed program. To select a specific allowed program, use the four-argument overload `(output, zkCoprocessor, programVKey, proofBytes)`.
 
 ### Deployment Information
 
-| Network | ChainID  | SEVAgentAttestation                        | SP1Verifier                                | RiscZeroGroth16Verifier                    |
-| ------- | -------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
-| Sepolia | 11155111 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B | 0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187 |
-| Hoodi   | 560048   | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd | 0x32Db7dc407AC886807277636a1633A1381748DD8 |
-| Automata Testnet | 1398243 | 0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2 | 0x7291752B7c1e0E69adF9801865b25435b0bE4Fc6 | 0xaE7F7EC735b6A90366e55f87780b36e7e6Ec3c65 |
+See the [contract guide](contracts/README.md) for deployment and SP1 program configuration.
 
-| ZkType | Program ID |
-| ------ | ----------- |
-| Risc0  | 0x280160e5f541ac4a9015ae6bb4b65e0b4791354e30ff9a393dd50c3bb24dc377 |
-| SP1    | 0x00d2342d2400bed28302507269281dcb2c621bae91a0626796ce637f01c928d8 (BN254); 0x691a1692002fb4a0604a0e4d1281dcb26310dd744681899e2d9cc6fe01c928d8 (BabyBear 32-bit BE word) |
+| Network | Chain ID | AMD attestation | SP1 verifier | RISC0 verifier |
+| --- | --- | --- | --- | --- |
+| Ethereum Mainnet | 1 | [0x3e6d0B383C915739cBBE75438C9a339BD63b97C9](https://etherscan.io/address/0x3e6d0B383C915739cBBE75438C9a339BD63b97C9#code) | [0x397A5f7f3dBd538f23DE225B51f532c34448dA9B](https://etherscan.io/address/0x397A5f7f3dBd538f23DE225B51f532c34448dA9B#code) | Not configured |
+| Ethereum Sepolia | 11155111 | [0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2](https://sepolia.etherscan.io/address/0x84d19f7F2e07766ea16D1c24f7e0828FA11273A2#code) | [0x397A5f7f3dBd538f23DE225B51f532c34448dA9B](https://sepolia.etherscan.io/address/0x397A5f7f3dBd538f23DE225B51f532c34448dA9B#code) | [0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187](https://sepolia.etherscan.io/address/0x925d8331ddc0a1F0d96E68CF073DFE1d92b69187#code) |
+| Ethereum Hoodi | 560048 | [0x89981202BDd1d19Cb5AfaFe74c847b87982b6B9C](https://hoodi.etherscan.io/address/0x89981202BDd1d19Cb5AfaFe74c847b87982b6B9C#code) | [0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd](https://hoodi.etherscan.io/address/0x7DA83eC4af493081500Ecd36d1a72c23F8fc2abd#code) | [0x32Db7dc407AC886807277636a1633A1381748DD8](https://hoodi.etherscan.io/address/0x32Db7dc407AC886807277636a1633A1381748DD8#code) |
 
-> [!NOTE] Why are there BabyBear and BN254 Program IDs?
->
-> SP1 program identifiers (vkeys) exist in two representations to serve different purposes in the zero-knowledge proof workflow:
->
-> - **BN254 Representation** (`vkey.bytes32_raw()`): This is the on-chain program identifier used for proof verification. The BN254 elliptic curve field is required for on-chain Groth16/Plonk proof verification, making this the canonical identifier for smart contract interactions.
->
-> - **BabyBear Representation** (`vkey.hash_u32()`): This is the off-chain program identifier used by zkVM explorers, proof aggregation systems, and development tooling. The BabyBear field is native to SP1's internal arithmetic, making it more efficient for off-chain operations and proof composition.
->
-> **Important Note on Endianness:** The BabyBear values shown in the deployment table above are big-endian (BE) encoded within each 4-byte word for human readability and cross-tool compatibility. The SP1 zkVM internally uses little-endian (LE) encoding of the same BabyBear representation for computation.
->
-> When integrating with this SDK:
-> - Use the **BN254 representation** when configuring on-chain verifiers or calling verification contracts
-> - Use the **BabyBear representation** when querying zkVM explorers or composing proofs
+### Latest AMD SP1 program
+
+`amd_sev_snp.v1` · SP1 SDK **6.4.0** · Groth16
+
+```text
+vk_bytes / programVKey (on-chain):
+0x007589387c69b403fe8d2b0e1c7db05175155daff7125fc981ac6ecd1985d18c
+
+vk_hash (remote prover):
+0x3ac49c3e1a6d00ff51a561c347db051728aaed7f5c497f260358dd9a1985d18c
+```
+
+The local SDK examples use a different bundled program; its identifiers do not match those above.
 
 ### ZK Optimization
 
@@ -75,7 +74,7 @@ To get started, you need to have the following installed:
 
 ##### Configuring Boundless
 
-With the Boundless proving network, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
+With the Boundless proving network, you can produce a Groth16 SNARK proof that is verifiable on-chain.
 You can get started by setting the following environment variables:
 
 ```bash
@@ -93,20 +92,19 @@ To get started, you need to have the following installed:
 * [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
 * [Docker](https://docs.docker.com/get-started/get-docker/)
 
-***Note:*** *SP1 5.2 includes mainnet support by default. To request a whitelisted address for the SP1 production network, [complete the form here](https://docs.google.com/forms/d/e/1FAIpQLSd-X9uH7G0bvXH_kjptnQtNil8L4dumrVPpFE4t8Ci1XT1GaQ/viewform).*
+The local SDK declares SP1 `^5.2.1` dependencies and generates Groth16 proofs. Use the toolchain compatible with this repository when running the local examples; the latest program listed above uses SP1 SDK 6.4.0.
 
-With the SP1 Proving Network, you can produce a [Groth16 SNARK proof] or [Plonk SNARK proof] that is verifiable on-chain.
-You can get started by setting the following environment variables with your whitelisted address:
+For network proving, configure your proving account:
 
 ```bash
 export SP1_PROVER=network
-export SP1_PRIVATE_KEY="0x..."  # Your whitelisted private key
-# SP1_RPC_URL is optional - SP1 5.2 defaults to production mainnet endpoint
+export SP1_PRIVATE_KEY="0x..."  # Proving account private key
+# Optional: export SP1_RPC_URL="<proving network endpoint>"
 ```
 
 ## Using The Prover SDK
 
-The prover now exposes explicit proving strategies per zkVM backend.
+The prover supports the following strategies for each zkVM backend.
 
 ### Strategy Enums
 
@@ -115,6 +113,8 @@ The prover now exposes explicit proving strategies per zkVM backend.
 - `PicoProvingStrategy`: `Dev`, `Local`, `Marketplace`
 
 ### Rust API Example (SP1)
+
+Run from the repository root with the `sp1` feature enabled. Replace the sample report with your own report for deployment use; its certificates must be valid at the supplied timestamp. On-chain verification also requires a matching allowed program and submission within `maxTimeDiff`.
 
 ```rust,no_run
 use amd_sev_snp_attestation_prover::{
@@ -126,10 +126,13 @@ fn main() -> anyhow::Result<()> {
         strategy: SP1ProvingStrategy::Local,
         private_key: None,
         rpc_url: None,
+        signer: None,
     });
     let prover = AmdSevSnpProver::new(cfg, None);
 
-    let timestamp = 1_700_000_000u64;
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
     let report_with_chain = std::fs::read("samples/attestation_azure_snp.json")?;
     let decoded = amd_sev_snp_attestation_prover::utils::AttestationReportWithVekCertChain::decode(&report_with_chain)?;
     let proof = prover.prove_attestation_report(timestamp, decoded.report, decoded.vek_certs)?;
@@ -174,7 +177,7 @@ fn main() -> anyhow::Result<()> {
 
 ## CLI Proving Modes
 
-Backend selection is now subcommand-based:
+Select the backend with a subcommand:
 
 ```bash
 snp-attest-cli prove <sp1|risc0|pico> ...
@@ -194,7 +197,7 @@ snp-attest-cli program-id <sp1|risc0|pico>
 
 ### Pico Marketplace Inputs
 
-Pico marketplace proving (`--strategy marketplace`) uses the Brevis prover marketplace on Base.
+Build `snp-attest-cli` with the `pico` feature to use this backend. Pico marketplace proving (`--strategy marketplace`) uses the Brevis prover marketplace on Base.
 You can configure it via CLI flags or env vars:
 
 ```bash
